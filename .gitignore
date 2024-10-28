@@ -48,9 +48,6 @@ po/*~
 # RStudio Connect folder
 rsconnect/
 
-# private project work
-private/
-
 # Windows thumbnail cache files
 Thumbs.db
 Thumbs.db:encryptable
@@ -75,3 +72,9 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
+
+# private project work
+private/
+
+# data (not permitted to share publicly per license restrictions)
+data/

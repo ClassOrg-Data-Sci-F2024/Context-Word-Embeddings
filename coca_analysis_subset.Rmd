@@ -1,0 +1,107 @@
+---
+title: "COCA Corpus Data Analysis"
+author: "Ben Kubacki"
+date: "28 Oct 2024"
+output: 
+  github_document:
+    toc: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=TRUE, include=TRUE, comment="")
+library(tidyverse)
+```
+
+# Initial steps
+
+## Sample 1990 file (Word Lemma POS)
+
+### Read the 1990 file of word-lemma-POS data from the Spoken genre of the COCA 
+
+
+```{r}
+wlp_1990 <- read_tsv("../Context-Word-Embeddings/data/wlp_spoken_kde/wlp_spok_1990.txt", col_names = FALSE)
+```
+### Brief visualization
+
+This shows row 3 through row 9, after `colnames = FALSE` has been applied above but before `colnames` have been renamed below.
+
+```{r}
+
+head(wlp_1990[3:9, ])
+```
+
+
+### Change column names to word, lemma, pos
+
+```{r}
+wlp_1990 <- wlp_1990 %>% 
+  rename(word = X1, lemma = X2, pos = X3) 
+
+```
+
+
+### Size and makeup
+
+Some information about the data (see code below): 
+
+- Rows: 3 million and 787   
+- Type: character vectors  
+- Unique values of Part of Speech (POS): 3435
+
+The POS column `$pos` can be used to create a new simpler column with a small number of values: noun, verb, adjective, adverb, determiner, etc. As it currently is, that column contains detailed POS information that may or may not be relevant for this project.
+
+There is more information about the data in the other data files (`text` and `db`) that may help determine how the strings are separated. For example, the first rows appear to be connected in a single utterance starting with "Good evening..." How are the data organized? 
+
+The text file may be interesting to explore. How is the text file different from the WLP data?
+
+```{r}
+
+wlp_1990 %>% 
+  summary()
+
+wlp_1990 %>% 
+  nrow()
+
+is.vector(wlp_1990$word)  
+
+## The head() output is commented out until licensing restrictions can be double checked.
+# wlp_1990 %>% 
+#   head()
+
+wlp_1990$pos %>% 
+   unique() %>% 
+  length()
+  # colnames() %>%
+  # length()
+
+```
+### Add column with collapsed verb-noun-adjective-etc. POS tags
+
+In this section, a new column will be added with mutate() which lists the basic POS of each word. Metadata about the COCA data will need to be found that explains the POS values in the current column.
+
+### Attempt at seed word analysis using "work"
+
+The anticipated analysis for this project involves using a seed word from workplace-related English words (i.e., "work" or "meet" or "job") and using word embeddings to find nearby and related words. 
+
+As it currently stands, the code below is returning errors that will be cleared up in the next phase.
+
+```{r}
+
+# wlp_1990 %>%
+#   filter(pos == "vv0") %>%
+#   select(word, lemma, pos) %>%
+#   str_view(wlp_1990$lemma, "work")
+
+```
+
+
+## Aggregated files
+
+In this section, more wlp (word-lemma-POS) files will be added to the current file in order to join the datasets and analyze the entire Spoken data. The current file (1990) is one of about 22, one for each year between 1990 and 2012. 
+
+# Session info
+
+```{r}
+sessionInfo()
+```

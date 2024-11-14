@@ -44,6 +44,38 @@
 - Explore GloVe and decide whether to use that or train word embeddings with my own data  
 - Locate functions to use for word embeddings and creating concordances
 
+### 2nd Progress Report (13 Nov 2024)
+
+**Steps completed:**
+
+- Created Sharing Scheme and License Decision (see below)  
+- Created _new replacement_ Rmd script (`../coca_trial.Rmd` and `../coca_trial.nb.Rmd`) using a different dataset from the COCA to run trial analyses, diverging from the previous Rmd. Eventually this Rmd and NB will be replaced with a `coca_analysis.Rmd` and `.md` that will contain the full pipeline  
+- Changed name of `data/` folder (my private data folder in `.gitignore`) to `data_private/` and created a new `data/` folder that I can use to share. Updated the `.gitignore` to ignore `data_private/`   
+- Changed COCA genre selection from Spoken to Newspaper for the trial runs   
+- Created new Rmd Notebook to test Newspaper 2012 text file `coca_trial.nb.Rmd`  
+- Format, shape, and size of data: 22 Newspaper non-tokenized text or tokenized word-lemma-POS files (will choose)  
+- Located a potential target word list with occupational/workplace jargon (not ideal, but workable) from [Gorick Ng](https://www.gorick.com/blog/workplace-jargon-dictionary) which I extracted via webscraping    
+- Located sources to help me decide which approach to use in creating word embeddings: [Medium](https://medium.com/biased-algorithms/word2vec-vs-glove-which-word-embedding-model-is-right-for-you-4dfc161c3f0c),  
+- Explored GloVe via text2vec by Selivanov - really good option!  
+- Found citation information for the data and corpus [see notes](../Context-Word-Embeddings/project_notes.md)
+- Made a [plan](../Context-Word-Embeddings/project_notes.md) for how my repo will adhere to the license requirements of the COCA  
+- Created updated [game plan](`../Context-Word-Embeddings/project_notes.md`) with goal and steps
+
+**Next steps:**
+
+- Create a temporary word list for trialing and moving the project forward, before a full list is pinned down  
+- Decide whether to use GloVe or train word embeddings with my own data  
+- Research GloVe and Word2Vec to decide which approach is appropriate for my project  
+- Locate functions to use for word embeddings and creating concordances  
+- Create or locate a stop-word list that works for my goals  
+
+#### License Decision & Rationale
+
+I chose the MIT License because I want people to be able to use the code I create to replicate my analysis or do other work with it. What I share and create (in the limited sample size required by the full text COCA license) will be available for the public to use and analyze.
+
+#### Data Sharing Scheme
+
+I am restricted in how much of the raw COCA data I can share due to the [license restrictions](https://www.corpusdata.org/restrictions.asp). Even though the corpus can be used online for free, the full data must be accessed with a license. My project will demonstrate the steps of the analysis for future replication by anyone who has access to the full data from the COCA, and will present a subset of the final analysis. To that end, I will have two final Rmd files: One with my analysis using the full text (or rather, the portion of the full text that I select from the COCA), with relative paths accessing the data so that the pipeline could not be cloned and replicated with the same paths by those who do not have the full data; and one with my analysis based on a created sample of the data (< 50,000 words) that will be made available in the repo, so that anyone can clone and replicate the pipeline with that portion of data. The first Rmd will have sample of the final analysis, but I cannot share, for example, and full list of words related to the target words, because this would violate the restrictions.  
 
 
 

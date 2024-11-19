@@ -20,6 +20,11 @@ library(tidytext)
 ```
 
 
+# BEFORE GOING ON:
+
+- Change relative paths to `read_csv("data/data_sample_text.csv")` for text and `read_csv("data/data_sample_tokenized.csv")` for wlp if you use the sample data
+- Don't change relative paths for the full analysis
+
 # Preview
 
 In this Rmd, I will have snippets of my code and analysis of the data for a portion of the intended dataset. See Data Sharing at the end of this document.

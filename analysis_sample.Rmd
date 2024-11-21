@@ -10,19 +10,80 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo=TRUE, include=TRUE, comment="")
 library(tidyverse)
+library(tidyr)
 library(dplyr)
-library(rvest)
 library(purrr)
 library(stringr)
+library(readxl)
+
+# web scraping
+library(rvest)
+
+# tokenizer
 library(tidytext)
 
+# word embeddings
+library(text2vec)
+library(Rling)
+library(cluster)
+library(tm)
 
 ```
 
-# BEFORE GOING ON:
+# Read in data
 
-- Change relative paths to `read_csv("data/data_sample_text.csv")` for text and `read_csv("data/data_sample_tokenized.csv")` for wlp if you use the sample data
-- Don't change relative paths for the full analysis  
+- Files: 1 of 22 in (analysis.Rmd)[analysis.Rmd] and (analysis.nb.Rmd)[analysis.nd.Rmd]  
+- Type: text  
+- Contents: Document number, text   
+
+Method  
+
+- Assign to object `news_sample`  
+- Use `c()` to combine all relative paths of the files as strings in character vector  
+- Read in using `read_lines()`  
+- Use `map()` to iterate `read_lines()` over all 22 files at once  
+- Use `unlist()` to turn from list containing character vectors (each doc's text) into character vector containing elements (each doc's text)  
+- Read in from `data_private/` folder within this repo but ignored with `.gitignore` 
+
+## Plan: Write sample data with approx 4,400 words
+
+```{r}
+
+# news_sample_2012 <- read_lines("data_private/text_newspaper_lsp/w_news_2012.txt")
+# 
+# news_sample <- c("data_private/text_newspaper_lsp/w_news_2011.txt",
+#                           "data_private/text_newspaper_lsp/w_news_2012.txt") %>% 
+#   map(read_lines) %>% unlist()
+# 
+# news_sample %>% str_split("\\s+") %>% length()
+# 
+# news_sample_2012 %>% str_split("\\s+") %>% length()
+# 
+# news_sample_2012 <- news_sample_2012 %>% unlist()
+# 
+# news_sample_2012 <- tibble(news_sample_2012)
+# 
+# news_sample_2012 <- news_sample_2012 %>%
+#   slice(1:10) 
+# 
+# news_sample_2012 <- news_sample_2012 %>% 
+#   rename(document_id = news_sample_2012)
+# 
+# news_sample_2012 <- news_sample_2012 %>% 
+#   select(document_id = document_id, text = document_id)
+# 
+# news_sample_2012 <- news_sample_2012 %>% mutate(document_id = str_sub(document_id, 3,9), text = str_sub(text, start = 10)) 
+# 
+# news_sample_2012 %>% 
+#   map(text[1], str_split("\\s+"))
+
+# word_count_row1 <- length(row1_words)
+
+# %>%
+#   write_csv("../data/data_sample_text.csv")
+
+```
+
 
 # Preview
 

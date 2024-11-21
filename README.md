@@ -1,4 +1,7 @@
-# Context Word Embeddings
+# Corpus Terms Co-Occurring With Common Workplace Vocabulary for English Learning 
+
+> Context-Word-Embeddings
+
 Ben's Data Science term project in which I use embeddings to curate lists of English word and related words for learners 
 
 My goal is to provide a means of finding similar and related words for a list of target words for a specific context (i.e., occupational or spoken English) for English learners by using embeddings to analyze the COCA corpus.

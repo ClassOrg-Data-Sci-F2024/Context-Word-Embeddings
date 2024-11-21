@@ -69,6 +69,27 @@
 - Locate functions to use for word embeddings and creating concordances  
 - Create or locate a stop-word list that works for my goals  
 
+### 3rd Progress Report (20 Nov 2024)
+
+**Steps completed:**
+
+- Created a _replacement Rmd_ called (analysis)[analysis.Rmd]
+- Created a sample dataset and a `data/` folder for repo access. See **next step** below.  
+- Created a temporary word list for trialing and moving the project forward, before a full list is pinned down: meeting, job, project, task, review   
+- Decided to use `text2vec` packages to create term co-occurrence matrix to get cosine similarities and attempted to create a document term matrix  
+- Located functions to use for word embeddings and creating concordances: various functions in the `text2vec` package    
+- Used, for now, the pruned vocab list in `text2vec`, but will consider using one of the `stop_words` bundles to reduce the number of possible co-occurring words in the results\
+- Used `map()` and `read_lines()` and `unlist()` to read in `txt` data files of name `w_news_YEAR.txt` - 22 in all  
+- Tidied the data in tibble format by creating two columns with `mutate()` and `str_sub()`: `$document_id` with the 7-digit number that started every document in the raw text, and `$text` with the document text from the news file  
+
+**Next steps:**
+
+- Find a reliable way to count the words in the text files (since I changed my method of reading in the data to `read_lines`) so that I can provide a larger sample data  
+- Find out more meta-information about the text files (i.e., type of source file - transcript of video/audio or all written texts)  
+- Summarize meta-info about the text files, such as word count & number of documents  
+- Match subgenre codes with texts used in the analysis to report which subgenres/news sources were used  
+- Clean up the Rmd and md files so that they are clear, organized, and not showing code that doesn't need to be shown  
+
 #### License Decision & Rationale
 
 I chose the MIT License because I want people to be able to use the code I create to replicate my analysis or do other work with it. What I share and create (in the limited sample size required by the full text COCA license) will be available for the public to use and analyze.

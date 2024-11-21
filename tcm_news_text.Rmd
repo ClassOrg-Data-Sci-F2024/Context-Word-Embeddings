@@ -13,21 +13,15 @@ library(tidytext)
 library(tm)
 ```
 
-# 1. Selivanov's Text2Vec Demo 
-
-Source: (Selivanov, 2023)[https://cran.r-project.org/web/packages/text2vec/vignettes/glove.html]
-
-Get the data first (vector?)
-
+Source of demo: (Selivanov, 2023)[https://cran.r-project.org/web/packages/text2vec/vignettes/glove.html]
 
 "You can achieve much better results by experimenting with skip_grams_window and the parameters of the GloVe class (including word vectors size and the number of iterations)."
-
 
 ## Now COCA
 
 ```{r}
 
-vector_sample <- read_csv("../data/data_sample_text.csv", col_names=F)
+vector_sample <- read_csv("data/data_sample_text.csv", col_names=F)
 
 vector_sample <- vector_sample %>% 
   select(document = X1, text = X1) 
@@ -39,8 +33,12 @@ vector_sample$document <- vector_sample$document %>%
 vector_sample$text <- vector_sample$text %>% 
   str_remove("^.{9}") 
 
-```
+## Remove stop words
 
+# vector_sample$text <- vector_sample$text %>% 
+#   str_subset(stop_words$word, negate = T, lexicon = "snowball")
+
+```
 
 use glove
 

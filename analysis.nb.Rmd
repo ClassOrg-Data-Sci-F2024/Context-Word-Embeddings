@@ -1,0 +1,288 @@
+---
+title: "Analysis of Workplace-Themed Term Co-Occurrence Matrices"
+author: "Ben Kubacki"
+date: "20 November 2024"
+output: 
+  github_document:
+    toc: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=TRUE, include=TRUE, comment="")
+
+library(tidyverse)
+library(tidyr)
+library(dplyr)
+library(purrr)
+library(stringr)
+library(readxl)
+
+# web scraping
+library(rvest)
+
+# tokenizer
+library(tidytext)
+
+# word embeddings
+library(text2vec)
+library(Rling)
+library(cluster)
+library(tm)
+```
+
+# Load packages in hidden setup chunk (see list below) 
+
+```{r}
+
+# library(tidyverse)
+# library(dplyr)
+# library(purrr)
+# library(stringr)
+# library(readxl)
+# 
+# # web scraping
+# library(rvest)
+# 
+# # tokenizer
+# library(tidytext)
+# 
+# # word embeddings
+# library(text2vec)
+# library(Rling)
+# library(cluster)
+# library(tm)
+
+```
+
+# Read in data
+
+- Files: 22  
+- Type: text  
+- Contents: Document number, text  
+- Text components: spaces, `#` paragraph or sentence separators  
+
+Method  
+
+- Assign to object `news_raw`  
+- Use `c()` to combine all relative paths of the files as strings in character vector  
+- Read in using `read_lines()`  
+- Use `map()` to iterate `read_lines()` over all 22 files at once  
+- Use `unlist()` to turn from list containing character vectors (each doc's text) into character vector containing elements (each doc's text)  
+- Read in from `data_private/` folder within this repo but ignored with `.gitignore`  
+
+```{r}
+news <- c("data_private/text_newspaper_lsp/w_news_1990.txt",
+           "data_private/text_newspaper_lsp/w_news_1991.txt",
+           "data_private/text_newspaper_lsp/w_news_1992.txt",
+           "data_private/text_newspaper_lsp/w_news_1993.txt",
+           "data_private/text_newspaper_lsp/w_news_1994.txt",
+           "data_private/text_newspaper_lsp/w_news_1995.txt",
+           "data_private/text_newspaper_lsp/w_news_1996.txt",
+           "data_private/text_newspaper_lsp/w_news_1997.txt",
+           "data_private/text_newspaper_lsp/w_news_1998.txt",
+           "data_private/text_newspaper_lsp/w_news_1999.txt",
+           "data_private/text_newspaper_lsp/w_news_2000.txt",
+           "data_private/text_newspaper_lsp/w_news_2001.txt",
+           "data_private/text_newspaper_lsp/w_news_2002.txt",
+           "data_private/text_newspaper_lsp/w_news_2003.txt",
+           "data_private/text_newspaper_lsp/w_news_2004.txt",
+           "data_private/text_newspaper_lsp/w_news_2005.txt",
+           "data_private/text_newspaper_lsp/w_news_2006.txt",
+           "data_private/text_newspaper_lsp/w_news_2007.txt",
+           "data_private/text_newspaper_lsp/w_news_2008.txt",
+           "data_private/text_newspaper_lsp/w_news_2009.txt",
+           "data_private/text_newspaper_lsp/w_news_2010.txt",
+           "data_private/text_newspaper_lsp/w_news_2011.txt",
+           "data_private/text_newspaper_lsp/w_news_2012.txt") %>% 
+  map(read_lines) %>% unlist() 
+
+# news %>% head()
+# 
+# news %>% summary()
+
+news <- tibble(news)
+
+news <- news %>% 
+  rename(document_id = news)
+
+# news %>% slice(1:10)
+
+# news <- news %>% 
+#  rename(document_id = news)
+# select(document_id = news) %>% 
+#   separate(into = c("doc", "text"), sep = "^.{9}", remove = F)
+
+
+```
+
+Create test data frame
+
+```{r}
+
+news_test <- news %>% head()
+
+# news_test %>% 
+#   str_extract("^{0}")
+
+news_test <- tibble(news_test)
+
+news_test <- news_test %>% 
+  select(document_id = document_id, text = document_id)
+
+```
+
+
+```{r}
+news_test <- news_test %>% mutate(document_id = str_sub(document_id, 3,9), text = str_sub(text, start = 10))
+```
+
+
+```{r}
+## Test Method 1
+
+
+# news_test$document_id[] <- news_test$document_id[-1] %>%
+#   str_extract("^.{9}") %>%
+#   str_remove("^..") 
+# 
+# news_test$text <- news_test$text %>%
+#   str_remove("^.{9}")
+# 
+# news_test$document_id %>%
+#   unique() %>%
+#   length()
+
+## Method 1
+
+# news <- tibble(news) %>% 
+#   select(document_id = news, text = news)
+# 
+# news$document_id <- news$document_id %>% 
+#   str_extract("^.{9}") %>% 
+#   str_remove("^..") 
+# 
+# news$text <- news$text %>% 
+#   str_remove("^.{9}") 
+#   
+# news$document_id %>% 
+#   unique() %>% 
+#   length()
+
+```
+
+Method 2: use separate() to separate columns
+
+```{r}
+
+# news_test %>% 
+#   separate(col = document_id, into = c("document_id", "text"), sep = "^.{9}", remove = F)
+# news_test %>% 
+#   separate_wider_delim(cols = document_id, delim = regex("^.{9}"), names = c("document_id", "text"))
+# news_test %>% 
+#   separate_wider_position(cols = document_id, widths = 9)
+# news_test %>% 
+#   separate_wider_regex(cols = document_id, patterns = )
+# 
+# ## test
+# 
+# head(news) %>% 
+#   rename(document_id = news)
+# 
+# news %>% 
+#   rename(document_id = news)
+# select(document_id = news) %>% 
+#   separate(into = c("doc", "text"), sep = "^.{9}", remove = F)
+```
+
+method 3 (original)
+
+```{r}
+
+# news_test <- news_test %>% 
+#   select(document_id = document_id, text = document_id)
+# 
+# news_test %>% 
+#   str_subset()
+
+```
+
+
+## Continue with TCM matrix
+
+Source of demo, including object names, code, and comments inside code: (Selivanov, 2023)[https://cran.r-project.org/web/packages/text2vec/vignettes/glove.html]
+
+"You can achieve much better results by experimenting with skip_grams_window and the parameters of the GloVe class (including word vectors size and the number of iterations)."
+
+```{r}
+# Create iterator over tokens
+tokens <- space_tokenizer(news_test$text)
+
+# Create vocabulary. Terms will be unigrams (simple words).
+it <- itoken(tokens, progressbar = FALSE)
+vocab <- create_vocabulary(it)
+```
+
+Use source's vocab list first, change later to mine.
+
+Term count min: Minimum number of token counts for a term to be included in the corpus.
+
+Was set at 5. **Set at 2**
+
+```{r}
+
+vocab <- prune_vocabulary(vocab, term_count_min = 2L)
+
+```
+
+
+Skip Gram Window: Size of context window around the target word
+
+**Set at 5**
+
+
+```{r}
+
+# Use our filtered vocabulary
+vectorizer <- vocab_vectorizer(vocab)
+
+# use window of 5 for context words
+tcm <- create_tcm(it, vectorizer, skip_grams_window = 5L)
+
+```
+
+May need to specify the number of cores, according to author.
+
+```{r}
+glove = GlobalVectors$new(rank = 50, x_max = 10)
+wv_main = glove$fit_transform(tcm, n_iter = 10, convergence_tol = 0.01, n_threads = 8)
+```
+
+```{r}
+wv_context = glove$components
+word_vectors = wv_main + t(wv_context)
+```
+
+```{r}
+# test <- word_vectors["meeting", , drop = FALSE] -
+#   word_vectors["meet", , drop = FALSE] +
+#   word_vectors["conference", , drop = FALSE]
+# cos_sim = sim2(x = word_vectors, y = test, method = "cosine", norm = "l2")
+# head(sort(cos_sim[,1], decreasing = TRUE), 5)
+
+
+by <- word_vectors["and", , drop = FALSE] -
+  word_vectors["to", , drop = FALSE] +
+  word_vectors["with", , drop = FALSE]
+cos_sim = sim2(x = word_vectors, y = by, method = "cosine", norm = "l2")
+head(sort(cos_sim[,1], decreasing = TRUE), 5)
+```
+
+## Test a DTM matrix with the rest the same.
+
+
+
+# Session info
+
+```{r}
+sessionInfo()
+```

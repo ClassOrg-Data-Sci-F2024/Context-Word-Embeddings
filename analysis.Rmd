@@ -161,7 +161,7 @@ vectorizer <- vocab_vectorizer(vocab)
 
 # use window of 5 for context words
 
-# tcm <- create_tcm(it, vectorizer, skip_grams_window = 5L)
+tcm <- create_tcm(it, vectorizer, skip_grams_window = 5L)
 
 ```
 

@@ -11,10 +11,6 @@ output:
 knitr::opts_chunk$set(echo=TRUE, include=TRUE, comment="")
 
 library(tidyverse)
-library(tidyr)
-library(dplyr)
-library(purrr)
-library(stringr)
 library(readxl)
 
 # web scraping
@@ -35,9 +31,6 @@ library(tm)
 ```{r}
 
 # library(tidyverse)
-# library(dplyr)
-# library(purrr)
-# library(stringr)
 # library(readxl)
 # 
 # # web scraping
@@ -111,9 +104,22 @@ news <- news %>%
 news <- news %>% 
   select(document_id = document_id, text = document_id)
 
-news <- news %>% mutate(document_id = str_sub(document_id, 3,9), text = str_sub(text, start = 10)) 
+news <- news %>% mutate(document_id = str_sub(document_id, 3,9), text = str_sub(text, start = 10))
+```
 
-news %>% tail()
+Note: There is an irregularity in the way the input documents (i.e., 1990 vs. 2012) represent the document numbers and paragraph breaks.
+
+- head(news) yields "3000002" while tail(news) yields 4115379 without quotation marks. Both are character strings.  
+- head(news) prints 
+
+```{r}
+
+# news %>% 
+#   head() %>% 
+#   str_split("\\s+") %>% 
+#   length(news$text)
+
+tail(news)
 
 ```
 
@@ -137,14 +143,14 @@ Use source's vocab list first, change later to mine.
 
 Term count min: Minimum number of token counts for a term to be included in the corpus.
 
-**Set at 5**
+**Set at 2**
 
 Use arguments to determine term and doc count mins and maxes, as well as overall vocab max.
 
 
 ```{r}
 
-vocab <- prune_vocabulary(vocab, term_count_min = 5L)
+vocab <- prune_vocabulary(vocab, term_count_min = 2L)
 
 ```
 
@@ -155,19 +161,36 @@ Skip Gram Window: Size of context window around the target word
 
 
 ```{r}
-
 # Use our filtered vocabulary
 vectorizer <- vocab_vectorizer(vocab)
+```
 
+
+```{r}
 # use window of 5 for context words
 
 tcm <- create_tcm(it, vectorizer, skip_grams_window = 5L)
 
+## Include all this code together so I can run it all overnight.
+
+glove <- GlobalVectors$new(rank = 50, x_max = 10)
+
+wv_main <- glove$fit_transform(tcm, n_iter = 10, convergence_tol = 0.01, n_threads = 8)
+
+wv_context <- glove$components
+
+word_vectors <- wv_main + t(wv_context)
+
+cos_list <- sim2(x = word_vectors, y = word_vectors["work", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T) 
+
+cos_tbl <- cos_list %>% 
+  as.tibble(rownames = "words") %>% 
+  gather("value", key = "value2", value = value) %>% 
+  select(words = words, cos_sim = value) 
+
+write_csv(cos_tbl, "data_private/cosine_work.csv")
+
 ```
-
-## ERROR
-
-> The `tcm` code directly above was not able to run for an unknown reason, even though it ran in a test sample in the (notebook)[analysis.nb.Rmd]. The following code will thus not work to knit until that is resolved.
 
 May need to specify the number of cores, according to author.
 

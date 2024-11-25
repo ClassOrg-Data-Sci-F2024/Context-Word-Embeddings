@@ -115,7 +115,7 @@ news <- news %>%
 news <- news %>% 
   select(document_id = document_id, text = document_id)
 
-news <- news %>% mutate(document_id = sub(document_id, 3,9), text = sub(text, start = 10))
+news <- news %>% mutate(document_id = str_sub(document_id, 3,9), text = str_sub(text, start = 10))
 
 ```
 
@@ -133,7 +133,7 @@ news8000 <- news %>% slice(1:8000)
 
 # news_test %>% 
 #   
-extract("^{0}")
+# extract("^{0}")
 
 # news_test <- tibble(news_test)
 
@@ -146,26 +146,26 @@ Count words for data sharing:
 
 ```{r}
 
-news20$text %>% 
+# news20$text %>% 
   
-  split("\\s+")
+  # split("\\s+")
 
-row1 <- text_news_2012[1, ]
-
-row1_words <- 
-  split(row1$X1, "\\s+")[[1]]
-
-word_count_row1 <- length(row1_words)
-
-word_count_row1
+# row1 <- text_news_2012[1, ]
+# 
+# row1_words <- 
+#   split(row1$X1, "\\s+")[[1]]
+# 
+# word_count_row1 <- length(row1_words)
+# 
+# word_count_row1
 
 ```
 
 
 ```{r}
 # news_test <- news_test %>% mutate(document_id = 
-sub(document_id, 3,9), text = 
-sub(text, start = 10))
+# sub(document_id, 3,9), text = 
+# sub(text, start = 10))
 ```
 
 
@@ -175,13 +175,13 @@ sub(text, start = 10))
 
 # news_test$document_id[] <- news_test$document_id[-1] %>%
 #   
-extract("^.{9}") %>%
+# extract("^.{9}") %>%
 #   
-remove("^..") 
+# remove("^..") 
 # 
 # news_test$text <- news_test$text %>%
-#   
-remove("^.{9}")
+# 
+# remove("^.{9}")
 # 
 # news_test$document_id %>%
 #   unique() %>%
@@ -194,13 +194,13 @@ remove("^.{9}")
 # 
 # news$document_id <- news$document_id %>% 
 #   
-extract("^.{9}") %>% 
+# extract("^.{9}") %>% 
 #   
-remove("^..") 
+# remove("^..") 
 # 
 # news$text <- news$text %>% 
 #   
-remove("^.{9}") 
+# remove("^.{9}") 
 #   
 # news$document_id %>% 
 #   unique() %>% 
@@ -241,7 +241,7 @@ method 3 (original)
 # 
 # news_test %>% 
 #   
-subset()
+# subset()
 
 ```
 
@@ -346,7 +346,19 @@ Was set at 5. **Set at 2**
 
 ```{r}
 
+system.time(prune_vocabulary(vocab, term_count_min = 2L)) 
+system.time(prune_vocabulary(vocab, term_count_min = 5L)) 
 vocab <- prune_vocabulary(vocab, term_count_min = 2L)
+
+vocab_filtered <- prune_vocabulary(vocab, term_count_min = 2L) %>% 
+  tibble() %>% 
+  filter(!term %in% stopwords(kind = "en"))
+
+# vocab$term %>% str_subset("^the$")
+# vocab_filtered$term %>% str_subset("^the$")
+
+vocab %>% nrow()
+vocab_filtered %>% nrow()
 
 ```
 
@@ -396,7 +408,7 @@ May need to specify the number of cores, according to author.
 # system.time(wv_main <-  glove$fit_transform(tcm, n_iter = 10, convergence_tol = 0.01, n_threads = 8))
 
 # 8000
-system.time(glove <-  GlobalVectors$new(rank = 50, x_max = 10))
+glove <-  GlobalVectors$new(rank = 50, x_max = 10)
 # 67.92
 system.time(wv_main <-  glove$fit_transform(tcm, n_iter = 10, convergence_tol = 0.01, n_threads = 8))
 ```
@@ -429,15 +441,46 @@ Cosine similarities per target word:
 
 ```{r}
 ## Get full list of cosine similarities in order, according to target word
-sim2(x = word_vectors, y = word_vectors["cheese", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T) 
+# sim2(x = word_vectors, y = word_vectors["cheese", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T) 
 
-cos_list <- sim2(x = word_vectors, y = word_vectors["cheese", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T) 
+# cos_list <- sim2(x = word_vectors, y = word_vectors["cheese", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
 
-cos_list %>% 
+cos_list <- sim2(x = word_vectors, y = word_vectors["work", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
+
+cos_list2 <- sim2(x = word_vectors, y = word_vectors["meeting", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
+
+cos_list3 <- sim2(x = word_vectors, y = word_vectors["job", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
+```
+
+Was struggling to extract the words out of the atomic vector or matrix. The code below solved it, though it has deprecated functions. [Here is the source](https://stackoverflow.com/questions/69944333/converting-a-matrix-into-a-tibble-in-r).
+
+```{r}
+
+cos_tbl <- cos_list %>% 
   as.tibble(rownames = "words") %>% 
-  gather("value", key = "value", value = value) %>% head()
+  gather("value", key = "value2", value = value) %>% 
+  select(words = words, cos_sim = value) %>% 
+  slice(2:6)
 
-cos_tbl <- tibble(cos_list, cos_sim = cos_list)
+write_csv(cos_tbl, "data_private/test_cos.csv")
+
+as.tibble(rownames = "words", ~ c(cos_list,
+              cos_list2,
+              cos_list3)) %>% gather("value", key = "value2", value = value) %>% 
+  select(words = words, cos_sim = value) %>% 
+  slice(2:6)
+
+```
+
+Trying to use correct functions `pivot_longer` and `tibble` but struggling to get the same results. 
+
+```{r}
+cos_list %>% 
+  pivot_longer(rownames = "words", value = "value")
+  tibble(rownames, value)
+
+cos_tbl <- cos_list %>% 
+  tibble(rownames = "words", value = "value")
 
 ```
 

@@ -37,8 +37,13 @@ embeddings:
 
 full analysis:  
 - Combine whatever files I choose, all 22  
-- Run the text2vec package over the combined dataset with the full target word list  
+- Run the `tcm` or `dtm` function over the combined dataset with a sample of words  
+- Do it with the full target word list  
 - Analyze the results!  
+- Create a 2D map of the results? How else can I get the words with the highest cosine similarity to the target words displayed at the same time?  
+- Sort the outcome words by K-Band  
+- Try analysis[here](https://cran.r-project.org/web/packages/word2vec/word2vec.pdf) with `word2vec` as well (dense CBOW and skip-gram)
+
 
 done  
 

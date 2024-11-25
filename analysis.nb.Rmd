@@ -11,10 +11,6 @@ output:
 knitr::opts_chunk$set(echo=TRUE, include=TRUE, comment="")
 
 library(tidyverse)
-library(tidyr)
-library(dplyr)
-library(purrr)
-library(stringr)
 library(readxl)
 
 # web scraping
@@ -35,9 +31,6 @@ library(tm)
 ```{r}
 
 # library(tidyverse)
-# library(dplyr)
-# library(purrr)
-# library(stringr)
 # library(readxl)
 # 
 # # web scraping
@@ -117,11 +110,21 @@ news <- news %>%
 
 ```
 
+```{r}
+
+news <- news %>% 
+  select(document_id = document_id, text = document_id)
+
+news <- news %>% mutate(document_id = sub(document_id, 3,9), text = sub(text, start = 10))
+
+```
+
+
 Create test data frame
 
 ```{r}
 
-news_test <- news %>% head()
+# news_test <- news %>% head()
 
 news20 <- news %>% slice(1:20)
 news2000 <- news %>% slice(1:2000)
@@ -129,18 +132,40 @@ news4000 <- news %>% slice(1:4000)
 news8000 <- news %>% slice(1:8000)
 
 # news_test %>% 
-#   str_extract("^{0}")
+#   
+extract("^{0}")
 
-news_test <- tibble(news_test)
+# news_test <- tibble(news_test)
 
-news_test <- news_test %>% 
-  select(document_id = document_id, text = document_id)
+# news_test <- news_test %>% 
+#   select(document_id = document_id, text = document_id)
+
+```
+
+Count words for data sharing:
+
+```{r}
+
+news20$text %>% 
+  
+  split("\\s+")
+
+row1 <- text_news_2012[1, ]
+
+row1_words <- 
+  split(row1$X1, "\\s+")[[1]]
+
+word_count_row1 <- length(row1_words)
+
+word_count_row1
 
 ```
 
 
 ```{r}
-news_test <- news_test %>% mutate(document_id = str_sub(document_id, 3,9), text = str_sub(text, start = 10))
+# news_test <- news_test %>% mutate(document_id = 
+sub(document_id, 3,9), text = 
+sub(text, start = 10))
 ```
 
 
@@ -149,11 +174,14 @@ news_test <- news_test %>% mutate(document_id = str_sub(document_id, 3,9), text 
 
 
 # news_test$document_id[] <- news_test$document_id[-1] %>%
-#   str_extract("^.{9}") %>%
-#   str_remove("^..") 
+#   
+extract("^.{9}") %>%
+#   
+remove("^..") 
 # 
 # news_test$text <- news_test$text %>%
-#   str_remove("^.{9}")
+#   
+remove("^.{9}")
 # 
 # news_test$document_id %>%
 #   unique() %>%
@@ -165,11 +193,14 @@ news_test <- news_test %>% mutate(document_id = str_sub(document_id, 3,9), text 
 #   select(document_id = news, text = news)
 # 
 # news$document_id <- news$document_id %>% 
-#   str_extract("^.{9}") %>% 
-#   str_remove("^..") 
+#   
+extract("^.{9}") %>% 
+#   
+remove("^..") 
 # 
 # news$text <- news$text %>% 
-#   str_remove("^.{9}") 
+#   
+remove("^.{9}") 
 #   
 # news$document_id %>% 
 #   unique() %>% 
@@ -209,7 +240,8 @@ method 3 (original)
 #   select(document_id = document_id, text = document_id)
 # 
 # news_test %>% 
-#   str_subset()
+#   
+subset()
 
 ```
 
@@ -288,7 +320,7 @@ May need to specify the number of cores, according to author.
 
 
 
-## Continue with TCM matrix for 20 rows
+## Continue with TCM matrix for X rows
 
 Source of demo, including object names, code, and comments inside code: (Selivanov, 2023)[https://cran.r-project.org/web/packages/text2vec/vignettes/glove.html]
 
@@ -376,6 +408,9 @@ wv_context = glove$components
 word_vectors = wv_main + t(wv_context)
 ```
 
+
+Predicting a word based on the comparison with other vectors:
+
 ```{r}
 # confer <- word_vectors["meeting", , drop = FALSE] -
 #   word_vectors["meet", , drop = FALSE] +
@@ -383,15 +418,34 @@ word_vectors = wv_main + t(wv_context)
 # cos_sim = sim2(x = word_vectors, y = confer, method = "cosine", norm = "l2")
 # head(sort(cos_sim[,1], decreasing = TRUE), 5)
 
-## Get full list of cosine similarities in order, according to target word
-sim2(x = word_vectors, y = word_vectors["cheese", , drop=FALSE], method = "cosine", norm = "l2")[,1] %>% sort(decreasing = T) %>% head(5)
-
-
 # by <- word_vectors["and", , drop = FALSE] -
 #   word_vectors["to", , drop = FALSE] +
 #   word_vectors["with", , drop = FALSE]
 # cos_sim = sim2(x = word_vectors, y = by, method = "cosine", norm = "l2")
 # head(sort(cos_sim[,1], decreasing = TRUE), 5)
+```
+
+Cosine similarities per target word: 
+
+```{r}
+## Get full list of cosine similarities in order, according to target word
+sim2(x = word_vectors, y = word_vectors["cheese", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T) 
+
+cos_list <- sim2(x = word_vectors, y = word_vectors["cheese", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T) 
+
+cos_list %>% 
+  as.tibble(rownames = "words") %>% 
+  gather("value", key = "value", value = value) %>% head()
+
+cos_tbl <- tibble(cos_list, cos_sim = cos_list)
+
+```
+
+Cosine similarities mapped onto multiple target words?
+
+```{r}
+sim2(x = word_vectors, y = word_vectors["cheese", , drop=FALSE], method = "cosine", norm = "l2")[,1] %>% sort(decreasing = T) %>% head(5)
+
 ```
 
 ## Test a DTM matrix with the rest the same.

@@ -183,25 +183,41 @@ news_wlp <- news_wlp %>%
 ```
 
 
+```{r}
+
+news_wlp %>% distinct(news_wlp$document_id) %>% str_detect("3000001") ## TRUE
+
+news_wlp %>% distinct(news_wlp$document_id) %>% str_detect("3058375") ## FALSE
+
+
+
+
+
+```
+
+
 Create test data frame
 
 ```{r}
 
 # news_test <- news %>% head()
 
-news20 <- news %>% slice(1:20)
-news2000 <- news %>% slice(1:2000)
-news4000 <- news %>% slice(1:4000)
+# news20 <- news %>% slice(1:20)
+# news2000 <- news %>% slice(1:2000)
+# news4000 <- news %>% slice(1:4000)
 news8000 <- news %>% slice(1:8000)
 
-# news_test %>% 
-#   
-# extract("^{0}")
+news8000 %>% tail()
 
-# news_test <- tibble(news_test)
+news_wlp %>% filter(document_id == "3058375")
 
-# news_test <- news_test %>% 
-#   select(document_id = document_id, text = document_id)
+news_wlp80000 <- news_wlp %>% slice(1:80000) %>% 
+  filter(!lemma %in% stopwords(kind = "en")) %>% 
+  filter(!lemma %in% c(".", "<p>", ","))
+
+# news_wlp80000$lemma %>% str_detect("^the$")
+# news_wlp80000$lemma %>% str_view("^the$")
+# news_wlp80000$lemma %>% str_extract("^the$")
 
 ```
 
@@ -218,10 +234,13 @@ Source of demo, including object names, code, and comments inside code: (Selivan
 # tokens <- space_tokenizer(news20$text)
 # tokens <- space_tokenizer(news2000$text)
 # tokens <- space_tokenizer(news4000$text)
-tokens <- space_tokenizer(news8000$text)
+# tokens <- space_tokenizer(news8000$text)
 
 # Create vocabulary. Terms will be unigrams (simple words).
-it <- itoken(tokens, progressbar = FALSE)
+# it <- itoken(tokens, progressbar = FALSE)
+# vocab <- create_vocabulary(it)
+
+it <- itoken(list(news_wlp80000$lemma), progressbar = FALSE)
 vocab <- create_vocabulary(it)
 ```
 
@@ -233,19 +252,19 @@ Was set at 5. **Set at 2**
 
 ```{r}
 
-system.time(prune_vocabulary(vocab, term_count_min = 2L)) 
-system.time(prune_vocabulary(vocab, term_count_min = 5L)) 
+# system.time(prune_vocabulary(vocab, term_count_min = 2L)) 
+# system.time(prune_vocabulary(vocab, term_count_min = 5L))
 vocab <- prune_vocabulary(vocab, term_count_min = 2L)
 
-vocab_filtered <- prune_vocabulary(vocab, term_count_min = 2L) %>% 
-  tibble() %>% 
-  filter(!term %in% stopwords(kind = "en"))
+# vocab_filtered <- prune_vocabulary(vocab, term_count_min = 2L) %>% 
+#   tibble() %>% 
+#   filter(!term %in% stopwords(kind = "en"))
 
 # vocab$term %>% str_subset("^the$")
 # vocab_filtered$term %>% str_subset("^the$")
 
-vocab %>% nrow()
-vocab_filtered %>% nrow()
+# vocab %>% nrow()
+# vocab_filtered %>% nrow()
 
 ```
 
@@ -322,20 +341,52 @@ cos_job <- sim2(x = word_vectors, y = word_vectors["job", , drop=FALSE], method 
 Was struggling to extract the words out of the atomic vector or matrix. The code below solved it, though it has deprecated functions. [Here is the source](https://stackoverflow.com/questions/69944333/converting-a-matrix-into-a-tibble-in-r).
 
 ```{r}
-
-cos_tbl <- cos_list %>% 
+cos_tbl_work <- cos_work %>% 
   as.tibble(rownames = "words") %>% 
   gather("value", key = "value2", value = value) %>% 
   select(words = words, cos_sim = value) %>% 
-  slice(2:6)
+  filter(cos_sim >= 0.5)
 
-write_csv(cos_tbl, "data_private/test_cos.csv")
+cos_tbl_work <- cos_tbl_work %>% 
+  mutate(target = "work")
 
-as.tibble(rownames = "words", ~ c(cos_list,
-              cos_list2,
-              cos_list3)) %>% gather("value", key = "value2", value = value) %>% 
+cos_tbl_meeting <- cos_meeting %>% 
+  as.tibble(rownames = "words") %>% 
+  gather("value", key = "value2", value = value) %>% 
   select(words = words, cos_sim = value) %>% 
+  filter(cos_sim >= 0.3)
+
+cos_tbl_meeting <- cos_tbl_meeting %>% 
+  mutate(target = "meeting")
+
+cos_tbl <- full_join(cos_tbl_work, cos_tbl_meeting)
+
+# cos_tbl %>% ifelse(duplicated(cos_tbl$words)==TRUE, print, )
+
+
+
+cos_tbl_work %>% summary()
+
+
+%>% 
   slice(2:6)
+
+# cos_tbl <- cos_list %>% 
+#   as.tibble(rownames = "words") %>% 
+#   gather("value", key = "value2", value = value) %>% 
+#   select(words = words, cos_sim = value) %>% 
+#   slice(2:6)
+```
+
+
+```{r}
+# write_csv(cos_tbl, "data_private/test_cos.csv")
+
+# as.tibble(rownames = "words", ~ c(cos_list,
+#               cos_list2,
+#               cos_list3)) %>% gather("value", key = "value2", value = value) %>% 
+#   select(words = words, cos_sim = value) %>% 
+#   slice(2:6)
 
 ```
 

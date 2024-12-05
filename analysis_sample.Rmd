@@ -49,38 +49,38 @@ Method
 
 ```{r}
 
-# news_sample_2012 <- read_lines("data_private/text_newspaper_lsp/w_news_2012.txt")
-# 
-# news_sample <- c("data_private/text_newspaper_lsp/w_news_2011.txt",
-#                           "data_private/text_newspaper_lsp/w_news_2012.txt") %>% 
-#   map(read_lines) %>% unlist()
-# 
-# news_sample %>% str_split("\\s+") %>% length()
-# 
-# news_sample_2012 %>% str_split("\\s+") %>% length()
-# 
-# news_sample_2012 <- news_sample_2012 %>% unlist()
-# 
-# news_sample_2012 <- tibble(news_sample_2012)
-# 
-# news_sample_2012 <- news_sample_2012 %>%
-#   slice(1:10) 
-# 
-# news_sample_2012 <- news_sample_2012 %>% 
-#   rename(document_id = news_sample_2012)
-# 
-# news_sample_2012 <- news_sample_2012 %>% 
-#   select(document_id = document_id, text = document_id)
-# 
-# news_sample_2012 <- news_sample_2012 %>% mutate(document_id = str_sub(document_id, 3,9), text = str_sub(text, start = 10)) 
-# 
-# news_sample_2012 %>% 
-#   map(text[1], str_split("\\s+"))
+news_sample_2012 <- read_lines("data_private/text_newspaper_lsp/w_news_2012.txt")
 
-# word_count_row1 <- length(row1_words)
+news_sample <- c("data_private/text_newspaper_lsp/w_news_2011.txt",
+                          "data_private/text_newspaper_lsp/w_news_2012.txt") %>%
+  map(read_lines) %>% unlist()
+
+news_sample %>% str_split("\\s+") %>% length()
+
+news_sample_2012 %>% str_split("\\s+") %>% length()
+
+news_sample_2012 <- news_sample_2012 %>% unlist()
+
+news_sample_2012 <- tibble(news_sample_2012)
+
+news_sample_2012 <- news_sample_2012 %>%
+  slice(1:10)
+
+news_sample_2012 <- news_sample_2012 %>%
+  rename(document_id = news_sample_2012)
+
+news_sample_2012 <- news_sample_2012 %>%
+  select(document_id = document_id, text = document_id)
+
+news_sample_2012 <- news_sample_2012 %>% mutate(document_id = str_sub(document_id, 3,9), text = str_sub(text, start = 10))
+
+news_sample_2012 %>%
+  map(text[1], str_split("\\s+"))
+
+word_count_row1 <- length(row1_words)
 
 # %>%
-#   write_csv("../data/data_sample_text.csv")
+  # write_csv("../data/data_sample_text.csv")
 
 ```
 
@@ -101,6 +101,8 @@ This is the text of each document per row, with the document identifying number 
 
 
 ```{r read in data}
+
+
 text_news_2012 <- read_csv("data/data_sample_text.csv", col_names = F, show_col_types = F) 
 
 head(text_news_2012) %>%

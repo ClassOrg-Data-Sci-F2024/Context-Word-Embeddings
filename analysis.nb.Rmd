@@ -98,7 +98,7 @@ news <- news %>%
 
 # news %>% head()
 # 
-# news %>% summary()
+news %>% summary()
 
 # news %>% slice(1:10)
 
@@ -137,7 +137,9 @@ POS Tags [reference list](https://ucrel.lancs.ac.uk/claws7tags.html)
 
 ```{r}
 
-system.time(
+# c("data_private/wlp_newspaper_lsp/wlp_news_2012.txt") %>% 
+#   read_tsv(col_names = F)
+  
   news_wlp <- c("data_private/wlp_newspaper_lsp/wlp_news_1990.txt",
            "data_private/wlp_newspaper_lsp/wlp_news_1991.txt",
            "data_private/wlp_newspaper_lsp/wlp_news_1992.txt",
@@ -161,7 +163,7 @@ system.time(
            "data_private/wlp_newspaper_lsp/wlp_news_2010.txt",
            "data_private/wlp_newspaper_lsp/wlp_news_2011.txt",
            "data_private/wlp_newspaper_lsp/wlp_news_2012.txt") %>% 
-  read_tsv(col_names = F))
+  read_tsv(col_names = F)
 
 ```
 
@@ -217,7 +219,7 @@ Create test data frame
 # news20 <- news %>% slice(1:20)
 # news2000 <- news %>% slice(1:2000)
 # news4000 <- news %>% slice(1:4000)
-# news8000 <- news %>% slice(1:8000)
+news8000 <- news %>% slice(1:8000)
 
 news25k <- news %>% slice(1:25000)
 
@@ -466,6 +468,19 @@ write_csv(cos_tbl, "data_private/test_cos_25k.csv")
 
 ```
 
+
+Read in 25k data again and compare words in "work" and "meeting"
+
+```{r}
+
+cos_tbl_25k <- read_csv("data_private/test_cos_25k.csv")
+
+cos_tbl_25k %>% 
+  unique(words, incomparables = F)
+
+```
+
+
 Trying to use correct functions `pivot_longer` and `tibble` but struggling to get the same results. 
 
 ```{r}
@@ -566,6 +581,55 @@ Lemmatize:
 See previous commits.
 
 Try TfIdf (p. 32)[CRAN](https://cran.r-project.org/web/packages/text2vec/text2vec.pdf)
+
+
+# Run the full data I created.
+
+```{r}
+
+# read_csv("data_private/test_cos_25k.csv")
+
+data_work <- read_csv("data_private/cosine_work.csv")
+
+data_work %>% head(20)
+
+data_work %>% summary()
+
+data_work %>% 
+  head(21) %>% 
+  ggplot(aes(words, cos_sim))+
+  geom_point(alpha = 0)+
+  geom_text(aes(label = words))
+
+
+cos_tbl_25k %>% 
+  group_by(target) %>% 
+  slice(1:21) %>% 
+  ggplot(aes(words, cos_sim))+
+  geom_point(alpha = 0)+
+  geom_text(aes(label = words, colour = target))
+  
+
+su
+
+```
+
+```{r fig.align="center", echo = FALSE,fig.width = 14}
+cos_tbl_25k %>% 
+  group_by(target) %>% 
+  slice(1:21) %>% 
+  ggplot(aes(words, cos_sim))+
+  geom_point(alpha = 0)+
+  geom_text(aes(label = words, colour = target))
+
+data_work %>% 
+  head(50) %>% 
+  ggplot(aes(words, cos_sim))+
+  geom_point(alpha = 0)+
+  geom_text(aes(label = words))
+```
+
+
 
 # Session info
 

@@ -3,6 +3,9 @@
 
 todo list
 
+- look for shared words between target word cosine lists  
+- analyze k-bands of the words, using the 100k list or the lextutor  
+
 - Read the full data (all 22 files) in with read_lines and unlist    
 - Make into a tibble  
 - Mutate with document number  

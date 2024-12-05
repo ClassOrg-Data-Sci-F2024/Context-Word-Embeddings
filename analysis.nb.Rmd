@@ -91,14 +91,14 @@ news <- c("data_private/text_newspaper_lsp/w_news_1990.txt",
            "data_private/text_newspaper_lsp/w_news_2012.txt") %>% 
   map(read_lines) %>% unlist() 
 
-# news %>% head()
-# 
-# news %>% summary()
-
 news <- tibble(news)
 
 news <- news %>% 
   rename(document_id = news)
+
+# news %>% head()
+# 
+# news %>% summary()
 
 # news %>% slice(1:10)
 
@@ -109,6 +109,15 @@ news <- news %>%
 
 
 ```
+
+Visualizations for Presentation
+
+```{r}
+
+news_vis <- read_lines("data_private/text_newspaper_lsp/w_news_1990.txt")
+
+```
+
 
 Fix columns
 
@@ -180,6 +189,9 @@ news_wlp <- news_wlp %>%
 news_wlp <- news_wlp %>% 
   fill(document_id)
 
+news_wlp %>% 
+  nrow()
+
 ```
 
 
@@ -205,11 +217,15 @@ Create test data frame
 # news20 <- news %>% slice(1:20)
 # news2000 <- news %>% slice(1:2000)
 # news4000 <- news %>% slice(1:4000)
-news8000 <- news %>% slice(1:8000)
+# news8000 <- news %>% slice(1:8000)
+
+news25k <- news %>% slice(1:25000)
 
 news8000 %>% tail()
 
-news_wlp %>% filter(document_id == "3058375")
+# news_wlp %>% filter(document_id == "3058375")
+
+news_wlp8mil <- news_wlp %>% slice(1:8000000)
 
 news_wlp80000 <- news_wlp %>% slice(1:80000) %>% 
   filter(!lemma %in% stopwords(kind = "en")) %>% 
@@ -229,6 +245,42 @@ Source of demo, including object names, code, and comments inside code: (Selivan
 
 "You can achieve much better results by experimenting with skip_grams_window and the parameters of the GloVe class (including word vectors size and the number of iterations)."
 
+Visualize before running: 
+
+```{r create sample & summarize}
+
+news25k <- news %>% slice(1:25000)
+
+news25k %>% head()
+
+news25k %>% 
+  summary()
+
+```
+
+show all steps of tcm creation
+
+```{r tcm steps for visualization}
+
+# news25k <- news %>% slice(1:25000)
+# 
+# # Create iterator over tokens
+# tokens <- space_tokenizer(news25k$text)
+# 
+# # Create vocabulary. Terms will be unigrams (simple words).
+# it <- itoken(tokens, progressbar = FALSE)
+# vocab <- create_vocabulary(it)
+# # Remove very frequent and very infrequent terms using min term count
+# vocab <- prune_vocabulary(vocab, term_count_min = 2L)
+# # Use our filtered vocabulary, create a vectorizer
+# vectorizer <- vocab_vectorizer(vocab)
+# tcm <- create_tcm(it, vectorizer, skip_grams_window = 5L))
+
+
+
+```
+
+
 ```{r}
 # Create iterator over tokens
 # tokens <- space_tokenizer(news20$text)
@@ -236,12 +288,16 @@ Source of demo, including object names, code, and comments inside code: (Selivan
 # tokens <- space_tokenizer(news4000$text)
 # tokens <- space_tokenizer(news8000$text)
 
-# Create vocabulary. Terms will be unigrams (simple words).
-# it <- itoken(tokens, progressbar = FALSE)
-# vocab <- create_vocabulary(it)
 
-it <- itoken(list(news_wlp80000$lemma), progressbar = FALSE)
+# Create iterator over tokens
+tokens <- space_tokenizer(news25k$text)
+
+# Create vocabulary. Terms will be unigrams (simple words).
+it <- itoken(tokens, progressbar = FALSE)
 vocab <- create_vocabulary(it)
+
+# it <- itoken(list(news_wlp80000$lemma), progressbar = FALSE)
+# vocab <- create_vocabulary(it)
 ```
 
 Use source's vocab list first, change later to mine.
@@ -254,6 +310,8 @@ Was set at 5. **Set at 2**
 
 # system.time(prune_vocabulary(vocab, term_count_min = 2L)) 
 # system.time(prune_vocabulary(vocab, term_count_min = 5L))
+
+
 vocab <- prune_vocabulary(vocab, term_count_min = 2L)
 
 # vocab_filtered <- prune_vocabulary(vocab, term_count_min = 2L) %>% 
@@ -263,7 +321,7 @@ vocab <- prune_vocabulary(vocab, term_count_min = 2L)
 # vocab$term %>% str_subset("^the$")
 # vocab_filtered$term %>% str_subset("^the$")
 
-# vocab %>% nrow()
+vocab %>% nrow()
 # vocab_filtered %>% nrow()
 
 ```
@@ -277,12 +335,17 @@ Skip Gram Window: Size of context window around the target word
 ```{r}
 
 # Use our filtered vocabulary
+
 vectorizer <- vocab_vectorizer(vocab)
 
 # use window of 5 for context words
 
-# 8000: 50.04
-system.time(tcm <- create_tcm(it, vectorizer, skip_grams_window = 5L))
+# # 8000: 50.04
+# system.time(tcm <- create_tcm(it, vectorizer, skip_grams_window = 5L))
+# # 25k: 323.01
+# system.time(tcm <- create_tcm(it, vectorizer, skip_grams_window = 5L))
+
+tcm <- create_tcm(it, vectorizer, skip_grams_window = 5L))
 
 ```
 
@@ -292,9 +355,13 @@ May need to specify the number of cores, according to author.
 
 
 # 8000
+
 glove <-  GlobalVectors$new(rank = 50, x_max = 10)
+
+wv_main <-  glove$fit_transform(tcm, n_iter = 10, convergence_tol = 0.01, n_threads = 8)
+
 # 67.92
-system.time(wv_main <-  glove$fit_transform(tcm, n_iter = 10, convergence_tol = 0.01, n_threads = 8))
+# system.time(wv_main <-  glove$fit_transform(tcm, n_iter = 10, convergence_tol = 0.01, n_threads = 8))
 
 
 ```
@@ -302,8 +369,15 @@ system.time(wv_main <-  glove$fit_transform(tcm, n_iter = 10, convergence_tol = 
 
 
 ```{r}
+
+glove <-  GlobalVectors$new(rank = 50, x_max = 10)
+
+wv_main <-  glove$fit_transform(tcm, n_iter = 10, convergence_tol = 0.01, n_threads = 8)
+
 wv_context = glove$components
+
 word_vectors = wv_main + t(wv_context)
+
 ```
 
 
@@ -324,6 +398,8 @@ Predicting a word based on the comparison with other vectors:
 ```
 
 Cosine similarities per target word: 
+
+NOTE: Find a way to change "work" to just NOUN instances.
 
 ```{r}
 ## Get full list of cosine similarities in order, according to target word
@@ -380,7 +456,7 @@ cos_tbl_work %>% summary()
 
 
 ```{r}
-# write_csv(cos_tbl, "data_private/test_cos.csv")
+write_csv(cos_tbl, "data_private/test_cos_25k.csv")
 
 # as.tibble(rownames = "words", ~ c(cos_list,
 #               cos_list2,

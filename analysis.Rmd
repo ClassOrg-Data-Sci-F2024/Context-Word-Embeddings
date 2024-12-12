@@ -169,9 +169,7 @@ vectorizer <- vocab_vectorizer(vocab)
 ```{r}
 # use window of 5 for context words
 
-system.time(
-  tcm <- create_tcm(it, vectorizer, skip_grams_window = 5L)
-)
+tcm <- create_tcm(it, vectorizer, skip_grams_window = 5L)
 
 ## Include all this code together so I can run it all overnight.
 
@@ -185,16 +183,12 @@ word_vectors <- wv_main + t(wv_context)
 
 cos_list <- sim2(x = word_vectors, y = word_vectors["work", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T) 
 
-system.time(
-  cos_tbl <- cos_list %>% 
+cos_tbl <- cos_list %>% 
   as.tibble(rownames = "words") %>% 
   gather("value", key = "value2", value = value) %>% 
-  select(words = words, cos_sim = value) 
-  )
+  select(words = words, cos_sim = value)
 
-system.time(
-  write_csv(cos_tbl, "data_private/cosine_work.csv")
-)
+# write_csv(cos_tbl, "data_private/cosine_work.csv")
 
 ```
 
@@ -234,7 +228,7 @@ May need to specify the number of cores, according to author.
 Analyze the results
 
 - 393,667 words (remember the `prune_vocab()` function removed words)  
-- top words "instead" (0.8731426), "doing" (0.8704069), "time" (0.8649227), "way" (0.8642288), "job" (0.8560277), "same" (0.8524236), "done" (0.8522326), "now" (0.8521537), "rather" (0.8518153), "own" (0.8360136), "well" (0.8346018).
+- top words "Instead" (0.8731426), "doing" (0.8704069), "time" (0.8649227), "way" (0.8642288), "job" (0.8560277), "same" (0.8524236), "done" (0.8522326), "now" (0.8521537), "rather" (0.8518153), "own" (0.8360136), "well" (0.8346018).
 
 ```{r}
 

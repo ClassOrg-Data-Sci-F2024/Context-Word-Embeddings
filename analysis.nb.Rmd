@@ -89,8 +89,33 @@ news <- c("data_private/text_newspaper_lsp/w_news_1990.txt",
            "data_private/text_newspaper_lsp/w_news_2010.txt",
            "data_private/text_newspaper_lsp/w_news_2011.txt",
            "data_private/text_newspaper_lsp/w_news_2012.txt") %>% 
-  map(read_lines) %>% unlist() 
+  map(read_lines) %>% unlist()
+```
 
+use `separate()` and `str_remove()` to separate columns to two and remove ## in `text` data
+
+```{r}
+
+news <- news %>% tibble() 
+news %>% head()
+
+# news <- 
+  # separate_wider_regex(news, cols = `.`, delim = , too_few = "debug", too_many="debug", cols_remove=T, widths = c(a = 2, document_id = 7)) %>% head()
+  # 
+  # separate_wider_position(news, cols = `.`, too_few = "debug", too_many = "debug", cols_remove=T, widths = c(document_id = 9)) %>% head()
+  
+news <- separate(news, c(document_id = 9), into = c("document_id", "text"), col = `.`,  remove = TRUE) 
+
+news$document_id <- news$document_id %>% 
+  str_remove("^..")
+
+slice_sample(news, n=20) %>% 
+  str_split("\\s+") %>% length()
+
+```
+
+
+```{r}
 news <- tibble(news)
 
 news <- news %>% 
@@ -166,6 +191,13 @@ POS Tags [reference list](https://ucrel.lancs.ac.uk/claws7tags.html)
   read_tsv(col_names = F)
 
 ```
+write sample data
+
+```{r}
+
+
+
+```
 
 
 Fix columns
@@ -176,7 +208,6 @@ news_wlp <- news_wlp %>%
   select(word = X1, lemma = X2, pos = X3)
 
 ```
-
 
 Successful code to get column with document_id!
 
@@ -193,6 +224,11 @@ news_wlp <- news_wlp %>%
 
 news_wlp %>% 
   nrow()
+
+news_wlp$document_id %>% 
+  unique()
+
+news_wlp %>% head()
 
 ```
 
@@ -306,6 +342,8 @@ Use source's vocab list first, change later to mine.
 
 Term count min: Minimum number of token counts for a term to be included in the corpus.
 
+Use "snowball" lexicon for stop-words, then remove extra words that might be unnecessary
+
 Was set at 5. **Set at 2**
 
 ```{r}
@@ -327,6 +365,11 @@ vocab %>% nrow()
 # vocab_filtered %>% nrow()
 
 ```
+
+# Feedback 12/10
+
+Run the WLP data to here and compare to the other pipeline
+
 
 
 Skip Gram Window: Size of context window around the target word

@@ -95,66 +95,30 @@ news <- c("data_private/text_newspaper_lsp/w_news_1990.txt",
 use `separate()` and `str_remove()` to separate columns to two and remove ## in `text` data
 
 ```{r}
-
 news <- news %>% tibble() 
-news %>% head()
-
-# news <- 
-  # separate_wider_regex(news, cols = `.`, delim = , too_few = "debug", too_many="debug", cols_remove=T, widths = c(a = 2, document_id = 7)) %>% head()
-  # 
-  # separate_wider_position(news, cols = `.`, too_few = "debug", too_many = "debug", cols_remove=T, widths = c(document_id = 9)) %>% head()
   
 news <- separate(news, c(document_id = 9), into = c("document_id", "text"), col = `.`,  remove = TRUE) 
 
 news$document_id <- news$document_id %>% 
   str_remove("^..")
 
-slice_sample(news, n=20) %>% 
-  str_split("\\s+") %>% length()
+news %>% head()
 
-```
+## Option to use this method instead if it's cleaner
 
-
-```{r}
-news <- tibble(news)
-
-news <- news %>% 
-  rename(document_id = news)
-
-# news %>% head()
+# news <- tibble(news)
 # 
-news %>% summary()
-
-# news %>% slice(1:10)
-
 # news <- news %>% 
-#  rename(document_id = news)
-# select(document_id = news) %>% 
-#   separate(into = c("doc", "text"), sep = "^.{9}", remove = F)
-
+#   rename(document_id = news)
 
 ```
 
-Visualizations for Presentation
-
+sample creation
 ```{r}
-
-news_vis <- read_lines("data_private/text_newspaper_lsp/w_news_1990.txt")
-
-```
-
-
-Fix columns
-
-```{r}
-
-news <- news %>% 
-  select(document_id = document_id, text = document_id)
-
-news <- news %>% mutate(document_id = str_sub(document_id, 3,9), text = str_sub(text, start = 10))
+# slice_sample(news, n=20) %>% 
+#   str_split("\\s+") %>% length()
 
 ```
-
 
 Read in WLP
 
@@ -191,6 +155,9 @@ POS Tags [reference list](https://ucrel.lancs.ac.uk/claws7tags.html)
   read_tsv(col_names = F)
 
 ```
+
+
+
 write sample data
 
 ```{r}
@@ -204,8 +171,8 @@ Fix columns
 
 ```{r}
 
-news_wlp <- news_wlp %>% 
-  select(word = X1, lemma = X2, pos = X3)
+# news_wlp <- news_wlp %>% 
+#   select(word = X1, lemma = X2, pos = X3)
 
 ```
 
@@ -213,22 +180,22 @@ Successful code to get column with document_id!
 
 ```{r}
 
-news_wlp <- news_wlp %>%
-  mutate(document_id = word)
-
-news_wlp <- news_wlp %>% 
-  mutate(document_id = ifelse(is.na(news_wlp$pos) & is.na(news_wlp$lemma), str_sub(document_id, 3,9),NA))
-
-news_wlp <- news_wlp %>% 
-  fill(document_id)
-
-news_wlp %>% 
-  nrow()
-
-news_wlp$document_id %>% 
-  unique()
-
-news_wlp %>% head()
+# news_wlp <- news_wlp %>%
+#   mutate(document_id = word)
+# 
+# news_wlp <- news_wlp %>% 
+#   mutate(document_id = ifelse(is.na(news_wlp$pos) & is.na(news_wlp$lemma), str_sub(document_id, 3,9),NA))
+# 
+# news_wlp <- news_wlp %>% 
+#   fill(document_id)
+# 
+# news_wlp %>% 
+#   nrow()
+# 
+# news_wlp$document_id %>% 
+#   unique()
+# 
+# news_wlp %>% head()
 
 ```
 
@@ -300,19 +267,23 @@ show all steps of tcm creation
 
 ```{r tcm steps for visualization}
 
-# news25k <- news %>% slice(1:25000)
-# 
-# # Create iterator over tokens
-# tokens <- space_tokenizer(news25k$text)
-# 
-# # Create vocabulary. Terms will be unigrams (simple words).
-# it <- itoken(tokens, progressbar = FALSE)
-# vocab <- create_vocabulary(it)
-# # Remove very frequent and very infrequent terms using min term count
-# vocab <- prune_vocabulary(vocab, term_count_min = 2L)
-# # Use our filtered vocabulary, create a vectorizer
-# vectorizer <- vocab_vectorizer(vocab)
-# tcm <- create_tcm(it, vectorizer, skip_grams_window = 5L))
+news25k <- news %>% slice(1:25000)
+
+# Create iterator over tokens
+tokens <- space_tokenizer(news25k$text)
+
+# Create vocabulary. Terms will be unigrams (simple words).
+it <- itoken(tokens, progressbar = FALSE)
+vocab <- create_vocabulary(it)
+# Remove very frequent and very infrequent terms using min term count
+vocab <- prune_vocabulary(vocab, term_count_min = 2L)
+# Use our filtered vocabulary, create a vectorizer
+vectorizer <- vocab_vectorizer(vocab)
+tcm <- create_tcm(it, vectorizer, skip_grams_window = 5L))
+glove <-  GlobalVectors$new(rank = 50, x_max = 10)
+wv_main <-  glove$fit_transform(tcm, n_iter = 10, convergence_tol = 0.01, n_threads = 8)
+wv_context = glove$components
+word_vectors = wv_main + t(wv_context)
 
 
 
@@ -330,6 +301,55 @@ show all steps of tcm creation
 # Create iterator over tokens
 tokens <- space_tokenizer(news25k$text)
 
+
+```
+
+Stop words
+
+- remove punctuation  
+- normalize for capitalization  
+- remove stop words  
+
+Result should be a list of character vectors
+
+```{r}
+
+tokens %>% head()
+
+tokens[[2]] %>% str_remove_all("[<p>\\.\\,Heistrying]")
+
+## This worked
+tokens[[2]] %>% str_subset("[<p>\\.\\,]", negate=T) %>% str_to_lower()
+
+str_to_lower(str_subset(tokens[[2]], "[<p>\\.\\,]", negate=T))
+
+## Make a recipe
+~ str_to_lower(str_subset(.x, "[<p>\\.\\,]", negate=T))
+
+## Apply to full
+map(tokens, ~ str_to_lower(str_subset(.x, "[<p>\\.\\,]", negate=T)))
+
+
+tokens[[2]] %>% str_subset(stop_words_snowball, negate=T)
+
+tokens %>% map(str_subset("[<p>\\.\\,]", negate=T))
+
+tokens %>% 
+  map(~str_subset("[<p>\\.\\,]", negate=T), .)
+map(tokens[[2]])
+
+# Make table with snowball and "en" and my own punctuation lists
+  
+stop_words_snowball <- filter(stop_words, lexicon=="snowball") %>% select(word)
+
+stopwords(kind = "en")
+
+stopword_list <- tibble(filter(stop_words, lexicon=="snowball")
+
+```
+
+
+```{r}
 # Create vocabulary. Terms will be unigrams (simple words).
 it <- itoken(tokens, progressbar = FALSE)
 vocab <- create_vocabulary(it)
@@ -340,7 +360,7 @@ vocab <- create_vocabulary(it)
 
 Use source's vocab list first, change later to mine.
 
-Term count min: Minimum number of token counts for a term to be included in the corpus.
+Term count min: Minimum number of token counts for a term to be included in the corpus. DONT FORGET TO SPECIFY TERM COUNT MAX (or use stop word list)
 
 Use "snowball" lexicon for stop-words, then remove extra words that might be unnecessary
 

@@ -278,6 +278,8 @@ it <- itoken(tokens, progressbar = FALSE)
 vocab <- create_vocabulary(it)
 # Remove very frequent and very infrequent terms using min term count
 vocab <- prune_vocabulary(vocab, term_count_min = 2L)
+vocab[!2 %in% stopword_list] %>% tail(50)
+vocab[!term %in% stopword_list] %>% tail(50)
 # Use our filtered vocabulary, create a vectorizer
 vectorizer <- vocab_vectorizer(vocab)
 tcm <- create_tcm(it, vectorizer, skip_grams_window = 5L))
@@ -291,6 +293,112 @@ word_vectors = wv_main + t(wv_context)
 ```
 
 
+
+
+```{r}
+# Create iterator over tokens
+# tokens <- space_tokenizer(news20$text)
+# tokens <- space_tokenizer(news2000$text)
+# tokens <- space_tokenizer(news4000$text)
+# tokens <- space_tokenizer(news8000$text)
+
+
+# Create iterator over tokens
+tokens <- space_tokenizer(news25k$text)
+
+
+```
+
+Stop words for TEXT data
+
+- remove punctuation  
+- normalize for capitalization  
+- remove stop words  
+
+Result should be a list of character vectors
+
+```{r}
+tokens %>% head()
+
+## This worked
+# tokens[[2]] %>% str_subset("[<p>\\.\\,]", negate=T) %>% str_to_lower()
+# 
+# str_to_lower(str_subset(tokens[[2]], "[<p>\\.\\,]", negate=T))
+# 
+# ## Make a recipe
+# ~ str_to_lower(str_subset(.x, "[<p>\\.\\,]", negate=T))
+# 
+# ## Apply to full
+# map(tokens, ~ str_to_lower(str_subset(.x, "[<p>\\.\\,]", negate=T)))
+
+## KEEP
+
+stop_punctuation_regex <- "[<p>]|[\\,\\.\\:\\;\\*\\@\\'\\\"\\-\\$\\(\\)]|(\\-\\-)|('s)|('d)|('t)|(n't)|('ve)|('re)|('ll)"
+
+tokens <- map(tokens, ~ str_to_lower(str_subset(.x, stop_punctuation, negate=T)))
+
+
+```
+
+Stop words for WLP data
+
+- remove punctuation  
+- normalize for capitalization  
+- remove stop words  
+
+Result should be a list of character vectors
+
+```{r}
+tokens_wlp %>% head()
+
+## This worked
+# tokens[[2]] %>% str_subset("[<p>\\.\\,]", negate=T) %>% str_to_lower()
+# 
+# str_to_lower(str_subset(tokens[[2]], "[<p>\\.\\,]", negate=T))
+# 
+# ## Make a recipe
+# ~ str_to_lower(str_subset(.x, "[<p>\\.\\,]", negate=T))
+# 
+# ## Apply to full
+# map(tokens, ~ str_to_lower(str_subset(.x, "[<p>\\.\\,]", negate=T)))
+
+## KEEP
+
+# stop_punctuation_regex <- "[<p>]|[\\,\\.\\:\\;\\*\\@\\'\\\"\\-\\$\\(\\)]|(\\-\\-)|('s)|('d)|('t)|(n't)|('ve)|('re)|('ll)"
+
+tokens_wlp <- map(tokens_wlp, ~ str_to_lower(str_subset(.x, stop_punctuation, negate=T)))
+
+
+
+```
+
+test with stopwords
+
+```{r}
+
+tokens[[2]][! tokens %in% stop_words_snowball$word]
+
+```
+
+
+```{r}
+# Make table with snowball and "en" and my own punctuation lists
+  
+stop_words_snowball <- filter(stop_words, lexicon=="snowball") %>% select(word)
+
+stopwords(kind = "en")
+
+stop_punctuation_sep <- c("<p>",",",".",":",";","*","@","'","\"","-","$","--",
+"(",")","'s","'d","'t","n't","'ve","'re","'ll")
+
+# stopword_list <- tibble(filter(stop_words, lexicon=="snowball")
+stopword_list_pun_sep <- c(stop_words_snowball$word, stopwords(kind="en"), stop_punctuation_sep)
+stopword_list_pun_com <- c(stop_words_snowball$word, stopwords(kind="en"), "[<p>]|[\\,\\.\\:\\;\\*\\@\\'\\\"\\-\\$\\(\\)]|(\\-\\-)|('s)|('d)|('t)|(n't)|('ve)|('re)|('ll)")
+
+# Is BE in the stopword lists? Check lemmas.
+
+```
+
 For WLP
 
 ```{r tcm for WLP}
@@ -302,7 +410,8 @@ tokens <- space_tokenizer(news_wlp8mil$lemma)
 # tokens_wlp <- news_wlp8mil %>% group_by(document_id) %>% as.vector(news_wlp8mil$lemma) 
 # news_wlp8mil %>% group_by(document_id) %>% news_wlp8mil$lemma
 # tokens_wlp1 <- news_wlp8mil$lemma
-tokens_wlp <- news_wlp8mil %>% select(document_id, lemma) %>% chop(lemma) %>% pull(lemma, document_id)
+tokens_wlp <- news_wlp8mil %>% select(document_id, lemma) %>% chop(lemma) %>% pull(lemma, document_id) #%>% 
+  #as.list()
 
 # Create vocabulary. Terms will be unigrams (simple words).
 it <- itoken(tokens_wlp, progressbar = FALSE)
@@ -320,81 +429,6 @@ word_vectors = wv_main + t(wv_context)
 
 
 ```
-
-
-```{r}
-# Create iterator over tokens
-# tokens <- space_tokenizer(news20$text)
-# tokens <- space_tokenizer(news2000$text)
-# tokens <- space_tokenizer(news4000$text)
-# tokens <- space_tokenizer(news8000$text)
-
-
-# Create iterator over tokens
-tokens <- space_tokenizer(news25k$text)
-
-
-```
-
-Stop words
-
-- remove punctuation  
-- normalize for capitalization  
-- remove stop words  
-
-Result should be a list of character vectors
-
-```{r}
-tokens %>% head()
-
-## This worked
-tokens[[2]] %>% str_subset("[<p>\\.\\,]", negate=T) %>% str_to_lower()
-
-str_to_lower(str_subset(tokens[[2]], "[<p>\\.\\,]", negate=T))
-
-## Make a recipe
-~ str_to_lower(str_subset(.x, "[<p>\\.\\,]", negate=T))
-
-## Apply to full
-map(tokens, ~ str_to_lower(str_subset(.x, "[<p>\\.\\,]", negate=T)))
-
-```
-
-test with remaining regex
-
-```{r}
-
-stop_punctuation <- "[<p>]|[\\,\\.\\:\\;\\*\\@\\'\\\"\\-\\$\\(\\)]|(\\-\\-)|('s)|('d)|('t)|(n't)|('ve)|('re)|('ll)"
-
-# tokens[[2]] %>% str_to_lower() %>% str_subset(stop_punctuation, negate=T)
-
-# tokens <- map(tokens, ~ str_to_lower(str_subset(.x, "[<p>]|[\\,\\.\\:\\;\\*\\@\\'\\\"\\-\\$\\(\\)]|(\\-\\-)|('s)|('d)|('t)|(n't)|('ve)|('re)|('ll)", negate=T)))
-
-tokens <- map(tokens, ~ str_to_lower(str_subset(.x, stop_punctuation, negate=T)))
-
-
-```
-
-test with stopwords
-
-```{r}
-
-tokens[[2]][! tokens %in% stop_words_snowball$word]
-
-```
-
-
-```{r}
-# Make table with snowball and "en" and my own punctuation lists
-  
-# stop_words_snowball <- filter(stop_words, lexicon=="snowball") %>% select(word)
-# 
-# stopwords(kind = "en")
-# 
-# stopword_list <- tibble(filter(stop_words, lexicon=="snowball")
-
-```
-
 
 ```{r}
 # Create vocabulary. Terms will be unigrams (simple words).

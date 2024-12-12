@@ -171,8 +171,8 @@ Fix columns
 
 ```{r}
 
-# news_wlp <- news_wlp %>% 
-#   select(word = X1, lemma = X2, pos = X3)
+news_wlp <- news_wlp %>%
+  select(word = X1, lemma = X2, pos = X3)
 
 ```
 
@@ -180,22 +180,22 @@ Successful code to get column with document_id!
 
 ```{r}
 
-# news_wlp <- news_wlp %>%
-#   mutate(document_id = word)
-# 
-# news_wlp <- news_wlp %>% 
-#   mutate(document_id = ifelse(is.na(news_wlp$pos) & is.na(news_wlp$lemma), str_sub(document_id, 3,9),NA))
-# 
-# news_wlp <- news_wlp %>% 
-#   fill(document_id)
-# 
-# news_wlp %>% 
-#   nrow()
-# 
-# news_wlp$document_id %>% 
-#   unique()
-# 
-# news_wlp %>% head()
+news_wlp <- news_wlp %>%
+  mutate(document_id = word)
+
+news_wlp <- news_wlp %>%
+  mutate(document_id = ifelse(is.na(news_wlp$pos) & is.na(news_wlp$lemma), str_sub(document_id, 3,9),NA))
+
+news_wlp <- news_wlp %>%
+  fill(document_id)
+
+news_wlp %>%
+  nrow()
+
+news_wlp$document_id %>%
+  unique()
+
+news_wlp %>% head()
 
 ```
 
@@ -205,6 +205,7 @@ Successful code to get column with document_id!
 news_wlp %>% distinct(news_wlp$document_id) %>% str_detect("3000001") ## TRUE
 
 news_wlp %>% distinct(news_wlp$document_id) %>% str_detect("3058375") ## FALSE
+news_wlp %>% distinct(news_wlp$document_id) %>% str_detect("3032382") ## TRUE
 
 
 
@@ -290,6 +291,37 @@ word_vectors = wv_main + t(wv_context)
 ```
 
 
+For WLP
+
+```{r tcm for WLP}
+
+# Create iterator over tokens
+tokens <- space_tokenizer(news_wlp8mil$lemma)
+# tokens_wlp <- news_wlp8mil %>% group_by(document_id) %>% list(news_wlp8mil$lemma) 
+# lemma <- group_by(news_wlp8mil, document_id) %>% as.vector(news_wlp8mil$lemma) %>% head()
+# tokens_wlp <- news_wlp8mil %>% group_by(document_id) %>% as.vector(news_wlp8mil$lemma) 
+# news_wlp8mil %>% group_by(document_id) %>% news_wlp8mil$lemma
+# tokens_wlp1 <- news_wlp8mil$lemma
+tokens_wlp <- news_wlp8mil %>% select(document_id, lemma) %>% chop(lemma) %>% pull(lemma, document_id)
+
+# Create vocabulary. Terms will be unigrams (simple words).
+it <- itoken(tokens_wlp, progressbar = FALSE)
+vocab <- create_vocabulary(it)
+# Remove very frequent and very infrequent terms using min term count
+vocab <- prune_vocabulary(vocab, term_count_min = 2L)
+# Use our filtered vocabulary, create a vectorizer
+vectorizer <- vocab_vectorizer(vocab)
+tcm <- create_tcm(it, vectorizer, skip_grams_window = 5L)
+glove <-  GlobalVectors$new(rank = 50, x_max = 10)
+wv_main <-  glove$fit_transform(tcm, n_iter = 10, convergence_tol = 0.01, n_threads = 8)
+wv_context = glove$components
+word_vectors = wv_main + t(wv_context)
+
+
+
+```
+
+
 ```{r}
 # Create iterator over tokens
 # tokens <- space_tokenizer(news20$text)
@@ -313,10 +345,7 @@ Stop words
 Result should be a list of character vectors
 
 ```{r}
-
 tokens %>% head()
-
-tokens[[2]] %>% str_remove_all("[<p>\\.\\,Heistrying]")
 
 ## This worked
 tokens[[2]] %>% str_subset("[<p>\\.\\,]", negate=T) %>% str_to_lower()
@@ -329,22 +358,40 @@ str_to_lower(str_subset(tokens[[2]], "[<p>\\.\\,]", negate=T))
 ## Apply to full
 map(tokens, ~ str_to_lower(str_subset(.x, "[<p>\\.\\,]", negate=T)))
 
+```
 
-tokens[[2]] %>% str_subset(stop_words_snowball, negate=T)
+test with remaining regex
 
-tokens %>% map(str_subset("[<p>\\.\\,]", negate=T))
+```{r}
 
-tokens %>% 
-  map(~str_subset("[<p>\\.\\,]", negate=T), .)
-map(tokens[[2]])
+stop_punctuation <- "[<p>]|[\\,\\.\\:\\;\\*\\@\\'\\\"\\-\\$\\(\\)]|(\\-\\-)|('s)|('d)|('t)|(n't)|('ve)|('re)|('ll)"
 
+# tokens[[2]] %>% str_to_lower() %>% str_subset(stop_punctuation, negate=T)
+
+# tokens <- map(tokens, ~ str_to_lower(str_subset(.x, "[<p>]|[\\,\\.\\:\\;\\*\\@\\'\\\"\\-\\$\\(\\)]|(\\-\\-)|('s)|('d)|('t)|(n't)|('ve)|('re)|('ll)", negate=T)))
+
+tokens <- map(tokens, ~ str_to_lower(str_subset(.x, stop_punctuation, negate=T)))
+
+
+```
+
+test with stopwords
+
+```{r}
+
+tokens[[2]][! tokens %in% stop_words_snowball$word]
+
+```
+
+
+```{r}
 # Make table with snowball and "en" and my own punctuation lists
   
-stop_words_snowball <- filter(stop_words, lexicon=="snowball") %>% select(word)
-
-stopwords(kind = "en")
-
-stopword_list <- tibble(filter(stop_words, lexicon=="snowball")
+# stop_words_snowball <- filter(stop_words, lexicon=="snowball") %>% select(word)
+# 
+# stopwords(kind = "en")
+# 
+# stopword_list <- tibble(filter(stop_words, lexicon=="snowball")
 
 ```
 
@@ -371,8 +418,10 @@ Was set at 5. **Set at 2**
 # system.time(prune_vocabulary(vocab, term_count_min = 2L)) 
 # system.time(prune_vocabulary(vocab, term_count_min = 5L))
 
+## Determine which max count you want to remove
+# vocab %>% arrange(desc(term_count)) %>% head(100)
 
-vocab <- prune_vocabulary(vocab, term_count_min = 2L)
+vocab <- prune_vocabulary(vocab, term_count_min = 2L, term_count_max = 170000L)
 
 # vocab_filtered <- prune_vocabulary(vocab, term_count_min = 2L) %>% 
 #   tibble() %>% 
@@ -410,7 +459,7 @@ vectorizer <- vocab_vectorizer(vocab)
 # # 25k: 323.01
 # system.time(tcm <- create_tcm(it, vectorizer, skip_grams_window = 5L))
 
-tcm <- create_tcm(it, vectorizer, skip_grams_window = 5L))
+tcm <- create_tcm(it, vectorizer, skip_grams_window = 5L)
 
 ```
 

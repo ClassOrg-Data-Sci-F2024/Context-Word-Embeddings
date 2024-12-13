@@ -122,7 +122,6 @@ sample creation
 
 Read in WLP
 
-POS Tags [reference list](https://ucrel.lancs.ac.uk/claws7tags.html)
 
 ```{r}
 
@@ -154,9 +153,20 @@ POS Tags [reference list](https://ucrel.lancs.ac.uk/claws7tags.html)
            "data_private/wlp_newspaper_lsp/wlp_news_2012.txt") %>% 
   read_tsv(col_names = F)
 
+## news_wlp = news_wlp2 (same input)
+
 ```
 
+POS Tags [reference list](https://ucrel.lancs.ac.uk/claws7tags.html)
 
+```{r}
+
+pos_filtered <- str_to_lower(c("JJ", "JJR", "JJT", "JK", "NN", "NN1", "NN2", "NNA", "NNB", "NNL1", "NNL2", "NNO", "NNO2", "NNT1", "NNT2", "NNU", "NNU1", "NNU2", "VV0", "VVD", "VVG", "VVGK", "VVI", "VVN", "VVNK", "VVZ"))
+
+pos_filtered_c <- str_c(pos_filtered, collapse="|")
+
+
+```
 
 write sample data
 
@@ -174,17 +184,19 @@ Fix columns
 news_wlp <- news_wlp %>%
   select(word = X1, lemma = X2, pos = X3)
 
+# news_wlp2 <- news_wlp2 %>%
+#   select(word = X1, lemma = X2, pos = X3)
 ```
 
 Successful code to get column with document_id!
 
 ```{r}
 
-news_wlp <- news_wlp %>%
-  mutate(document_id = word)
+# news_wlp <- news_wlp %>%
+#   mutate(document_id = word)
 
 news_wlp <- news_wlp %>%
-  mutate(document_id = ifelse(is.na(news_wlp$pos) & is.na(news_wlp$lemma), str_sub(document_id, 3,9),NA))
+  mutate(document_id = ifelse(is.na(news_wlp$pos) & is.na(news_wlp$lemma), str_sub(word, 3,9),NA))
 
 news_wlp <- news_wlp %>%
   fill(document_id)
@@ -193,9 +205,41 @@ news_wlp %>%
   nrow()
 
 news_wlp$document_id %>%
-  unique()
+  unique() %>% length()
 
 news_wlp %>% head()
+
+## testing news_wlp2 with new fill method
+# news_wlp2 <- news_wlp2 %>%
+#   mutate(document_id = word)
+
+str_view(news_wlp2$word, "^##\\d") %>% print(n=10)
+
+news_wlp2 <- news_wlp2 %>%
+  mutate(document_id = ifelse(str_detect(word, "^##\\d{7}")==T, str_sub(word, 3,9), NA))
+
+# news_wlp2 <- news_wlp2 %>%
+#   mutate(document_id = ifelse(str_detect(word, "^(##\\d{7})|\\d{7}")==T, str_sub(word, 3,9), NA))
+
+news_wlp2 <- news_wlp2 %>%
+  fill(document_id)
+
+news_wlp2 %>%
+  nrow()
+
+news_wlp2$document_id %>%
+  unique() %>% length()
+
+news_wlp2 %>% head()
+
+```
+
+
+What pos types are there?
+
+```{r}
+
+unique(news_wlp$pos)
 
 ```
 
@@ -207,6 +251,10 @@ news_wlp %>% distinct(news_wlp$document_id) %>% str_detect("3000001") ## TRUE
 news_wlp %>% distinct(news_wlp$document_id) %>% str_detect("3058375") ## FALSE
 news_wlp %>% distinct(news_wlp$document_id) %>% str_detect("3032382") ## TRUE
 
+news_wlp2 %>% distinct(news_wlp2$document_id) %>% str_detect("3000001") ## TRUE
+
+news_wlp2 %>% distinct(news_wlp2$document_id) %>% str_detect("3058375") ## FALSE
+news_wlp2 %>% distinct(news_wlp2$document_id) %>% str_detect("3032382") ## TRUE
 
 
 
@@ -243,6 +291,25 @@ news_wlp80000 <- news_wlp %>% slice(1:80000) %>%
 
 ```
 
+
+Test filtering POS
+
+- Need to str_subset so that it recognizes 
+
+```{r}
+
+pos_test <- c("JJ|FF")
+
+test_set <- tibble(a = c("JJ", "JJ_T", "NNS", "NN_FF"), b = c(1, 2, 3, 4), c = c("a", "b", "c", "d"))
+
+test_set %>% 
+  filter(str_detect(a, pos_test))
+
+news_wlp8mil %>% 
+  filter(str_detect(pos, pos_filtered_c)) %>% 
+  print(n=200)
+
+```
 
 
 ## Continue with TCM matrix for X rows
@@ -335,7 +402,7 @@ tokens %>% head()
 
 stop_punctuation_regex <- "[<p>]|[\\,\\.\\:\\;\\*\\@\\'\\\"\\-\\$\\(\\)]|(\\-\\-)|('s)|('d)|('t)|(n't)|('ve)|('re)|('ll)"
 
-tokens <- map(tokens, ~ str_to_lower(str_subset(.x, stop_punctuation, negate=T)))
+tokens <- map(tokens, ~ str_to_lower(str_subset(.x, stop_punctuation_regex, negate=T)))
 
 
 ```
@@ -366,7 +433,7 @@ tokens_wlp %>% head()
 
 # stop_punctuation_regex <- "[<p>]|[\\,\\.\\:\\;\\*\\@\\'\\\"\\-\\$\\(\\)]|(\\-\\-)|('s)|('d)|('t)|(n't)|('ve)|('re)|('ll)"
 
-tokens_wlp <- map(tokens_wlp, ~ str_to_lower(str_subset(.x, stop_punctuation, negate=T)))
+tokens_wlp <- map(tokens_wlp, ~ str_to_lower(str_subset(.x, stop_punctuation_regex, negate=T)))
 
 
 
@@ -378,6 +445,23 @@ test with stopwords
 
 tokens[[2]][! tokens %in% stop_words_snowball$word]
 
+list5 <- list(c("hi","i","be","ben"), c("here", "be","the","salary","and"), c("another","north"))
+
+list5[[2]] %>% str_subset(list5[[2]] %in% c("here","be", "and", "then", "sal"), negate=F)
+list5[[2]] %>% str_detect(c("here","be", "and", "then", "sal"))
+list5[[2]] %>% str_extract_all(c("here","be", "and", "then", "sal"))
+str_detect(c("here","the"), string = list5[[2]]) %>% reduce(`|`) 
+
+map(list5, ~ str_subset(.x, c("here","the"), negate=T)) 
+
+c <- str_c(c("here","the"), collapse="|")
+
+map(list5, ~ str_subset(.x, c, negate=T))
+
+map(list5, ~ str_extract_all(.x, c))
+
+
+
 ```
 
 
@@ -388,12 +472,17 @@ stop_words_snowball <- filter(stop_words, lexicon=="snowball") %>% select(word)
 
 stopwords(kind = "en")
 
+my_stopwords <- c("also", "even", "one", "yet")
+
+
 stop_punctuation_sep <- c("<p>",",",".",":",";","*","@","'","\"","-","$","--",
 "(",")","'s","'d","'t","n't","'ve","'re","'ll")
 
 # stopword_list <- tibble(filter(stop_words, lexicon=="snowball")
 stopword_list_pun_sep <- c(stop_words_snowball$word, stopwords(kind="en"), stop_punctuation_sep)
 stopword_list_pun_com <- c(stop_words_snowball$word, stopwords(kind="en"), "[<p>]|[\\,\\.\\:\\;\\*\\@\\'\\\"\\-\\$\\(\\)]|(\\-\\-)|('s)|('d)|('t)|(n't)|('ve)|('re)|('ll)")
+
+stop_word_list <- c(stopwords(kind="en"), stop_words_snowball$word)
 
 # Is BE in the stopword lists? Check lemmas.
 
@@ -404,19 +493,20 @@ For WLP
 ```{r tcm for WLP}
 
 # Create iterator over tokens
-tokens <- space_tokenizer(news_wlp8mil$lemma)
-# tokens_wlp <- news_wlp8mil %>% group_by(document_id) %>% list(news_wlp8mil$lemma) 
-# lemma <- group_by(news_wlp8mil, document_id) %>% as.vector(news_wlp8mil$lemma) %>% head()
-# tokens_wlp <- news_wlp8mil %>% group_by(document_id) %>% as.vector(news_wlp8mil$lemma) 
-# news_wlp8mil %>% group_by(document_id) %>% news_wlp8mil$lemma
-# tokens_wlp1 <- news_wlp8mil$lemma
+# tokens <- space_tokenizer(news_wlp8mil$lemma)
+
 tokens_wlp <- news_wlp8mil %>% select(document_id, lemma) %>% chop(lemma) %>% pull(lemma, document_id) #%>% 
   #as.list()
+
+tokens_wlp <- map(tokens_wlp, ~ str_to_lower(str_subset(.x, stop_punctuation_regex, negate=T)))
+
+
 
 # Create vocabulary. Terms will be unigrams (simple words).
 it <- itoken(tokens_wlp, progressbar = FALSE)
 vocab <- create_vocabulary(it)
 # Remove very frequent and very infrequent terms using min term count
+vocab <- vocab %>% filter(!term %in% stop_word_list)
 vocab <- prune_vocabulary(vocab, term_count_min = 2L)
 # Use our filtered vocabulary, create a vectorizer
 vectorizer <- vocab_vectorizer(vocab)
@@ -429,6 +519,9 @@ word_vectors = wv_main + t(wv_context)
 
 
 ```
+
+
+
 
 ```{r}
 # Create vocabulary. Terms will be unigrams (simple words).
@@ -565,14 +658,17 @@ cos_job <- sim2(x = word_vectors, y = word_vectors["job", , drop=FALSE], method 
 Was struggling to extract the words out of the atomic vector or matrix. The code below solved it, though it has deprecated functions. [Here is the source](https://stackoverflow.com/questions/69944333/converting-a-matrix-into-a-tibble-in-r).
 
 ```{r}
-cos_tbl_work <- cos_work %>% 
-  as.tibble(rownames = "words") %>% 
-  gather("value", key = "value2", value = value) %>% 
-  select(words = words, cos_sim = value) %>% 
-  filter(cos_sim >= 0.5)
 
-cos_tbl_work <- cos_tbl_work %>% 
-  mutate(target = "work")
+cos_tbl_work <- as_tibble(cos_work, rownames="words") %>% rename(cos_sim = value)
+
+# cos_tbl_work <- cos_work %>% 
+#   as.tibble(rownames = "words") %>% 
+#   gather("value", key = "value2", value = value) %>% 
+#   select(words = words, cos_sim = value) %>% 
+#   filter(cos_sim >= 0.5)
+
+# cos_tbl_work <- cos_tbl_work %>% 
+#   mutate(target = "work")
 
 cos_tbl_meeting <- cos_meeting %>% 
   as.tibble(rownames = "words") %>% 

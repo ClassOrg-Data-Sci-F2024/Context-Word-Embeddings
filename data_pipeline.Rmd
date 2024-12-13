@@ -1,0 +1,305 @@
+---
+title: "Analysis of Workplace-Themed Term Co-Occurrence Matrices"
+author: "Ben Kubacki"
+date: "13 December 2024"
+output: 
+  github_document:
+    toc: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=TRUE, include=TRUE, comment="")
+
+library(tidyverse)
+library(readxl)
+
+# web scraping
+library(rvest)
+
+# tokenizer
+library(tidytext)
+
+# word embeddings
+library(text2vec)
+library(Rling)
+library(cluster)
+library(tm)
+```
+
+# Read in data
+
+> Data is already lemmatized and POS-tagged.
+
+```{r}
+
+# c("data_private/wlp_newspaper_lsp/wlp_news_2012.txt") %>% 
+#   read_tsv(col_names = F)
+  
+  news_wlp <- c("data_private/wlp_newspaper_lsp/wlp_news_1990.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_1991.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_1992.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_1993.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_1994.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_1995.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_1996.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_1997.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_1998.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_1999.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2000.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2001.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2002.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2003.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2004.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2005.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2006.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2007.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2008.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2009.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2010.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2011.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2012.txt") %>% 
+  read_tsv(col_names = F)
+
+```
+# Clean the data
+
+## Tidy columns
+
+- Rename "word", "lemma", "pos"  
+- Add document_id column  
+- Fill document_id column NAs with document_id
+
+```{r}
+
+## Rename columns
+news_wlp <- news_wlp %>%
+  select(word = X1, lemma = X2, pos = X3)
+
+## Add column marked by document number (when lemma & pos are NA), keep the rest NA
+news_wlp <- news_wlp %>%
+  mutate(document_id = ifelse(is.na(news_wlp$pos) & is.na(news_wlp$lemma), str_sub(word, 3,9),NA))
+
+## Replace NAs with document_id 
+news_wlp <- news_wlp %>%
+  fill(document_id)
+
+```
+
+## Filter POS to include only adjectives, nouns, and verbs. 
+
+> Compare full list against included list in code chunk
+
+POS Tags [reference list](https://ucrel.lancs.ac.uk/claws7tags.html)
+
+- Some data is marked with multiple POS (i.e., jj_nn)  
+- Create regex separated by `|` to filter for all cases, including multiples
+
+```{r}
+
+pos_filtered <- str_to_lower(c("JJ", "JJR", "JJT", "JK", "NN", "NN1", "NN2", "NNA", "NNB", "NNL1", "NNL2", "NNO", "NNO2", "NNT1", "NNT2", "NNU", "NNU1", "NNU2", "VV0", "VVD", "VVG", "VVGK", "VVI", "VVN", "VVNK", "VVZ"))
+
+pos_filtered_c <- str_c(pos_filtered, collapse="|")
+
+news_wlp <- news_wlp %>% 
+  filter(str_detect(pos, pos_filtered_c))
+
+```
+
+# Build TCM Matrix
+
+Source of demo, including object names, code, and comments inside code: (Selivanov, 2023)[https://cran.r-project.org/web/packages/text2vec/vignettes/glove.html]
+
+## Create tokens
+
+- Remove punctuation and contractions (may already be removed from POS filtering)
+
+```{r}
+
+## Create tokens object
+
+tokens <- news_wlp %>% select(document_id, lemma) %>% chop(lemma) %>% pull(lemma, document_id) #%>% 
+  #as.list()
+
+stop_punctuation_regex <- "[<p>]|[\\,\\.\\:\\;\\*\\@\\'\\\"\\-\\$\\(\\)\\?]|(\\-\\-)|('s)|('d)|('t)|(n't)|('ve)|('re)|('ll)"
+
+tokens <- map(tokens, ~ str_to_lower(str_subset(.x, stop_punctuation_regex, negate=T)))
+
+```
+
+## Create iterator
+
+```{r}
+
+# Create vocabulary. Terms will be unigrams (simple words).
+it <- itoken(tokens, progressbar = FALSE)
+
+```
+
+## Create and filter vocabulary for infrequent terms and stop-words
+
+### Create stop-word list
+
+```{r}
+
+## Make table with tidytext "snowball" and tm "en" and my own additions
+  
+# tidytext
+stop_words_snowball <- filter(stop_words, lexicon=="snowball") %>% select(word)
+
+# tm
+stopwords(kind = "en")
+
+# My additions
+my_stopwords <- c("also", "even", "one", "yet", "y")
+
+# Aggregated
+stop_word_list <- c(stopwords(kind="en"), stop_words_snowball$word, my_stopwords)
+
+```
+
+### Create vocabulary
+
+```{r}
+vocab <- create_vocabulary(it)
+
+# Remove very infrequent terms using min term count =2
+
+## Determine which max count you want to remove if any
+# vocab %>% arrange(desc(term_count)) %>% head(100)
+
+# add argument term_count_max = 170000L)
+vocab <- prune_vocabulary(vocab, term_count_min = 2L)
+
+vocab <- vocab %>% filter(!term %in% stop_word_list)
+```
+
+## Create vectorizer and term co-occurrence matrix
+
+```{r}
+vectorizer <- vocab_vectorizer(vocab)
+
+tcm <- create_tcm(it, vectorizer, skip_grams_window = 5L)
+
+```
+
+## Create vectors
+
+```{r}
+
+glove <-  GlobalVectors$new(rank = 50, x_max = 10)
+
+wv_main <-  glove$fit_transform(tcm, n_iter = 10, convergence_tol = 0.01, n_threads = 8)
+
+wv_context = glove$components
+
+word_vectors = wv_main + t(wv_context)
+
+```
+
+
+Cosine similarities per target word: 
+
+"work" should include both nouns and verbs, unfortunately
+
+```{r}
+
+## Target word "work"
+cos_work <- sim2(x = word_vectors, y = word_vectors["work", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
+
+## Target word "meeting"
+cos_meeting <- sim2(x = word_vectors, y = word_vectors["meeting", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
+
+## Target word "job"
+cos_job <- sim2(x = word_vectors, y = word_vectors["job", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
+
+## Target word "interview"
+
+## Target word "review"
+
+
+```
+
+
+```{r}
+
+cos_tbl_work <- as_tibble(cos_work, rownames="words") %>% rename(cos_sim = value)
+
+## Consider filtering by cos_sim
+filter(cos_sim < 1 | >= 0.3)
+
+## Add target word to facilitate join
+cos_tbl_work <- cos_tbl_work %>%
+  mutate(target = "work")
+
+## Join the target word tibbles
+cos_tbl <- full_join(cos_tbl_work, cos_tbl_meeting)
+
+
+```
+
+Write CSV
+
+```{r}
+
+cos_tbl %>% slice_sample() %>% write_csv()
+
+```
+
+Visualize
+
+
+```{r}
+arrange(proportion)
+
+ggplot(slice(cos_tbl, 1:50), aes(x = words, y = cos_sim)) + geom_col()
+
+```
+
+
+```{r}
+
+# read_csv("data_private/test_cos_25k.csv")
+
+data_work <- read_csv("data_private/cosine_work.csv")
+
+data_work %>% head(20)
+
+data_work %>% summary()
+
+data_work %>% 
+  head(21) %>% 
+  ggplot(aes(words, cos_sim))+
+  geom_point(alpha = 0)+
+  geom_text(aes(label = words))
+
+
+cos_tbl_25k %>% 
+  group_by(target) %>% 
+  slice(1:21) %>% 
+  ggplot(aes(words, cos_sim))+
+  geom_point(alpha = 0)+
+  geom_text(aes(label = words, colour = target))
+  
+```
+
+
+```{r fig.align="center", echo = FALSE,fig.width = 14}
+cos_tbl_25k %>% 
+  group_by(target) %>% 
+  slice(1:21) %>% 
+  ggplot(aes(words, cos_sim))+
+  geom_point(alpha = 0)+
+  geom_text(aes(label = words, colour = target))
+
+data_work %>% 
+  head(50) %>% 
+  ggplot(aes(words, cos_sim))+
+  geom_point(alpha = 0)+
+  geom_text(aes(label = words))
+```
+
+# Session info
+
+```{r}
+sessionInfo()
+```

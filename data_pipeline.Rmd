@@ -83,6 +83,8 @@ news_wlp <- news_wlp %>%
 news_wlp <- news_wlp %>%
   fill(document_id)
 
+news_wlp %>% head()
+
 ```
 
 ## Filter POS to include only adjectives, nouns, and verbs. 
@@ -103,9 +105,11 @@ pos_filtered_c <- str_c(pos_filtered, collapse="|")
 news_wlp <- news_wlp %>% 
   filter(str_detect(pos, pos_filtered_c))
 
+news_wlp %>% head()
+
 ```
 
-# Build TCM Matrix
+# Building a TCM Matrix
 
 Source of demo, including object names, code, and comments inside code: (Selivanov, 2023)[https://cran.r-project.org/web/packages/text2vec/vignettes/glove.html]
 
@@ -115,7 +119,7 @@ Source of demo, including object names, code, and comments inside code: (Selivan
 
 ```{r}
 
-## Create tokens object
+## Create tokens object as list
 
 tokens <- news_wlp %>% select(document_id, lemma) %>% chop(lemma) %>% pull(lemma, document_id) #%>% 
   #as.list()
@@ -123,6 +127,8 @@ tokens <- news_wlp %>% select(document_id, lemma) %>% chop(lemma) %>% pull(lemma
 stop_punctuation_regex <- "[<p>]|[\\,\\.\\:\\;\\*\\@\\'\\\"\\-\\$\\(\\)\\?]|(\\-\\-)|('s)|('d)|('t)|(n't)|('ve)|('re)|('ll)"
 
 tokens <- map(tokens, ~ str_to_lower(str_subset(.x, stop_punctuation_regex, negate=T)))
+
+tokens[[1]] %>% head(50)
 
 ```
 
@@ -146,14 +152,17 @@ it <- itoken(tokens, progressbar = FALSE)
 # tidytext
 stop_words_snowball <- filter(stop_words, lexicon=="snowball") %>% select(word)
 
-# tm
-stopwords(kind = "en")
+# tm::stopwords(kind = "en")
 
 # My additions
-my_stopwords <- c("also", "even", "one", "yet", "y")
+my_stopwords <- c("also", "even", "one", "yet", "y", "mr", "ms")
 
 # Aggregated
 stop_word_list <- c(stopwords(kind="en"), stop_words_snowball$word, my_stopwords)
+
+stop_word_list <- unique(stop_word_list)
+
+stop_word_list
 
 ```
 
@@ -163,14 +172,21 @@ stop_word_list <- c(stopwords(kind="en"), stop_words_snowball$word, my_stopwords
 vocab <- create_vocabulary(it)
 
 # Remove very infrequent terms using min term count =2
+```
+
+### Determine if need to remove frequent terms
+
+- Don't remove because some relevant content words
+
+```{r}
+
+vocab <- vocab %>% filter(!term %in% stop_word_list)
 
 ## Determine which max count you want to remove if any
-# vocab %>% arrange(desc(term_count)) %>% head(100)
+vocab %>% arrange(desc(term_count)) %>% head(100)
 
 # add argument term_count_max = 170000L)
 vocab <- prune_vocabulary(vocab, term_count_min = 2L)
-
-vocab <- vocab %>% filter(!term %in% stop_word_list)
 ```
 
 ## Create vectorizer and term co-occurrence matrix
@@ -213,8 +229,10 @@ cos_meeting <- sim2(x = word_vectors, y = word_vectors["meeting", , drop=FALSE],
 cos_job <- sim2(x = word_vectors, y = word_vectors["job", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
 
 ## Target word "interview"
+cos_interview <- sim2(x = word_vectors, y = word_vectors["interview", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
 
 ## Target word "review"
+cos_evaluate <- sim2(x = word_vectors, y = word_vectors["evaluate", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
 
 
 ```
@@ -222,17 +240,41 @@ cos_job <- sim2(x = word_vectors, y = word_vectors["job", , drop=FALSE], method 
 
 ```{r}
 
-cos_tbl_work <- as_tibble(cos_work, rownames="words") %>% rename(cos_sim = value)
+cos_tbl_work <- as_tibble(cos_work, rownames="words") %>% 
+  rename(cos_sim = value) %>% 
+  mutate(target = "work") %>% 
+  filter(cos_sim < 1, cos_sim >= 0.5)
 
-## Consider filtering by cos_sim
-filter(cos_sim < 1 | >= 0.3)
+cos_tbl_meeting <- as_tibble(cos_meeting, rownames="words") %>% 
+  rename(cos_sim = value) %>% 
+  mutate(target = "meeting") %>% 
+  filter(cos_sim < 1, cos_sim >= 0.5)
+
+cos_tbl_job <- as_tibble(cos_job, rownames="words") %>% 
+  rename(cos_sim = value) %>%
+  mutate(target = "job") %>% 
+  filter(cos_sim < 1, cos_sim >= 0.5)
+
+cos_tbl_interview <- as_tibble(cos_interview, rownames="words") %>% 
+  rename(cos_sim = value) %>%
+  mutate(target = "interview") %>% 
+  filter(cos_sim < 1, cos_sim >= 0.5)
+
+cos_tbl_evaluate <- as_tibble(cos_evaluate, rownames="words") %>% 
+  rename(cos_sim = value) %>%
+  mutate(target = "evaluate") %>% 
+  filter(cos_sim < 1, cos_sim >= 0.5)
 
 ## Add target word to facilitate join
-cos_tbl_work <- cos_tbl_work %>%
-  mutate(target = "work")
 
 ## Join the target word tibbles
-cos_tbl <- full_join(cos_tbl_work, cos_tbl_meeting)
+cos_tbl1 <- full_join(slice(cos_tbl_work, 50), slice(cos_tbl_meeting, 50))
+
+cos_tbl2 <- full_join(slice(cos_tbl_job, 50), slice(cos_tbl_interview, 50))
+
+cos_tbl3 <- full_join(cos_tbl1, cos_tbl2)
+
+cos_tbl <- full_join(cos_tbl3, slice(cos_tbl_evaluate, 50))
 
 
 ```
@@ -251,7 +293,7 @@ Visualize
 ```{r}
 arrange(proportion)
 
-ggplot(slice(cos_tbl, 1:50), aes(x = words, y = cos_sim)) + geom_col()
+ggplot(slice(cos_tbl), aes(x = words, y = cos_sim)) + geom_col()
 
 ```
 
@@ -273,7 +315,7 @@ data_work %>%
   geom_text(aes(label = words))
 
 
-cos_tbl_25k %>% 
+cos_tbl %>% 
   group_by(target) %>% 
   slice(1:21) %>% 
   ggplot(aes(words, cos_sim))+

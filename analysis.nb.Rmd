@@ -102,7 +102,7 @@ news <- separate(news, c(document_id = 9), into = c("document_id", "text"), col 
 news$document_id <- news$document_id %>% 
   str_remove("^..")
 
-news %>% head()
+news %>% head(20)
 
 ## Option to use this method instead if it's cleaner
 
@@ -110,6 +110,8 @@ news %>% head()
 # 
 # news <- news %>% 
 #   rename(document_id = news)
+
+unique(news$document_id) %>% length()
 
 ```
 

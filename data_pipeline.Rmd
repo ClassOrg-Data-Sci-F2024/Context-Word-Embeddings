@@ -111,13 +111,16 @@ news_wlp %>% head()
 
 ```
 
-# Building a TCM Matrix
+# Build a TCM Matrix
 
 Source of demo, including object names, code, and comments inside code: (Selivanov, 2023)[https://cran.r-project.org/web/packages/text2vec/vignettes/glove.html]
 
-## Create tokens
+## Tokens
 
-- Remove punctuation and contractions (may already be removed from POS filtering)
+In this step:  
+
+- Remove punctuation and contractions (may already be removed from POS filtering)  
+- Normalize for capitalization by converting to lower case
 
 ```{r}
 
@@ -130,6 +133,11 @@ stop_punctuation_regex <- "[<p>]|[\\,\\.\\:\\;\\*\\@\\'\\\"\\-\\$\\(\\)\\?]|(\\-
 
 tokens <- map(tokens, ~ str_to_lower(str_subset(.x, stop_punctuation_regex, negate=T)))
 
+## Output summary
+str(tokens)
+summary(tokens)
+
+## Output shows first element of list
 tokens[[1]] %>% head(50)
 
 ```
@@ -143,9 +151,9 @@ it <- itoken(tokens, progressbar = FALSE)
 
 ```
 
-## Create and filter vocabulary for infrequent terms and stop-words
+### Create and filter vocabulary for infrequent terms and stop-words
 
-### Create stop-word list
+#### Create stop-word list
 
 ```{r}
 
@@ -173,28 +181,30 @@ stop_word_list
 **Add stopwords in argument in create_vocabulary function**??
 
 ```{r}
-vocab <- create_vocabulary(it)
+vocab <- create_vocabulary(it, stopwords = stop_word_list)
 
 # Remove very infrequent terms using min term count =2
 ```
 
-### Determine if need to remove frequent terms
+
+**Determine if need to remove frequent terms**
 
 - Don't remove because some relevant content words
 
 ```{r}
 
-vocab <- vocab %>% filter(!term %in% stop_word_list)
+# vocab <- vocab %>% filter(!term %in% stop_word_list)
 
 ## Determine which max count you want to remove if any
-vocab %>% arrange(desc(term_count)) %>% head(100)
+# vocab %>% arrange(desc(term_count)) %>% head(100)
 
 # add argument term_count_max = 170000L)
 vocab <- prune_vocabulary(vocab, term_count_min = 2L)
 
+
 ```
 
-## Create vectorizer and term co-occurrence matrix
+### Create vectorizer and term co-occurrence matrix
 
 ```{r}
 vectorizer <- vocab_vectorizer(vocab)
@@ -203,7 +213,7 @@ tcm <- create_tcm(it, vectorizer, skip_grams_window = 5L)
 
 ```
 
-## Create vectors
+### Create vectors
 
 ```{r}
 
@@ -218,121 +228,86 @@ word_vectors = wv_main + t(wv_context)
 ```
 
 
+# Create Target Word List
 
+## Web-scraped
 
-
-## Building a DTM (Use 2)
-
-Source of demo: (text2vec 0.3)[https://dsnotes.com/text2vec-0-3/]
-
-## Create tokens
-
-- Remove punctuation and contractions (may already be removed from POS filtering)
+**Promova**
 
 ```{r}
 
-## Create tokens object as list
+promova_list <- read_html("https://promova.com/english-vocabulary/occupations-and-jobs-english-vocabulary") %>% 
+  html_elements("li span") %>% 
+  html_text()
 
-tokens2 <- news_wlp %>% select(document_id, lemma) %>% chop(lemma) %>% pull(lemma, document_id) #%>% 
-  #as.list()
+promova_list <- promova_list[10:63] %>% 
+  str_extract("^.+\\:") %>% 
+  str_to_lower %>% 
+  str_remove("\\:")
 
-## Keep names for dtm
+promova_list <- promova_list[27:54] 
 
-names(tokens2) <- unique(news_wlp$document_id)
+promova_table <- promova_list %>% 
+  tibble(word = `.`) 
 
-stop_punctuation_regex <- "[<p>]|[\\,\\.\\:\\;\\*\\@\\'\\\"\\-\\$\\(\\)\\?]|(\\-\\-)|('s)|('d)|('t)|(n't)|('ve)|('re)|('ll)"
+stoplist <- c("cover letter", "job description", "background check", "probationary period", "job offer", "telecommuting/remote working", "salary expectations", "out of office")
 
-tokens2 <- map(tokens2, ~ str_to_lower(str_subset(.x, stop_punctuation_regex, negate=T)))
+promova_table <- promova_table %>% 
+  filter(!word %in% stoplist)
 
-tokens2[[1]] %>% head(50)
-
-```
-
-## Create iterator
-
-```{r}
-
-# Create vocabulary. Terms will be unigrams (simple words).
-it2 <- itoken(tokens2, progressbar = FALSE)
+promova_table$word <- promova_table$word %>% 
+  str_remove("ing")
 
 ```
 
 
-## Create and filter vocabulary for infrequent terms and stop-words
+**Gorick**
 
-### Create vocabulary
-
-**Add stopwords in argument in vocabulary function**??
-
-```{r}
-vocab2 <- create_vocabulary(it2, stopwords = stop_word_list)
-
-# Remove very infrequent terms using min term count =2
-```
-
-### Determine if need to remove frequent terms
-
-- Don't remove because some relevant content words
 
 ```{r}
 
-## Not needed any longer
-# vocab <- vocab %>% filter(!term %in% stop_word_list)
+gorick_list <- read_html("https://www.gorick.com/blog/workplace-jargon-dictionary")
 
-## Determine which max count you want to remove if any
-# vocab2 %>% arrange(desc(term_count)) %>% head(100)
+gorick_list <- gorick_list %>%
+  html_elements("h3") %>%
+  html_text()
 
-# add argument term_count_max = 170000L)
-vocab2 <- prune_vocabulary(vocab2, term_count_min = 2L, doc_proportion_max = 0.5)
-str(vocab2) # should be list of 4: vocab, ngram, doc count, stopwords
+gorick_list <- gorick_list %>%
+  str_remove("^.") %>%
+  str_remove(".$")
+
+gorick_list <- gorick_list %>% 
+  str_subset("^[A-Z]{2,9}$", negate=T)
+
+gorick_list <- gorick_list %>%
+  tolower()
+
+gorick_list
+
+  
 ```
 
-## Create vectorizer and term co-occurrence matrix
 
-```{r}
+**My own ideas with insight from gorick list**
 
-## Reinitialize it2
+c("work", "meeting", "job", "interview", "evaluate", "orientation", "communicate", "career", "task", "action", "value", "benchmark", "practice", "business", "consult", "context", "deliver") 
 
-it2 <- itoken(tokens2)
-
-vectorizer2 <- vocab_vectorizer(vocab2)
-
-dtm <- create_dtm(it2, vectorizer2)
-
-identical(rownames(dtm), unique(news_wlp$document_id)) #TRUE
-
-# dgcm <- create_dtm(it2, vectorizer2, type = "dgCMatrix")
-# dgtm <- create_dtm(it, vectorizer, type = "dgTMatrix")
-# dgrm <- create_dtm(it, vectorizer, type = "dgRMatrix")
-# csm <- create_dtm(it, vectorizer, type = "CsparseMatrix")
-# tsm <- create_dtm(it, vectorizer, type = "TsparseMatrix")
-# rsm <- create_dtm(it, vectorizer, type = "RsparseMatrix")
-
-```
-
-## Create vectors
-
-```{r}
-
-glove2 <-  GlobalVectors$new(rank = 50, x_max = 10)
-
-wv_main2 <-  glove$fit_transform(dtm, n_iter = 10, convergence_tol = 0.01, n_threads = 8)
-
-wv_main2 <-  glove$fit_transform(dtm, n_iter = 10, convergence_tol = 0.01)
-wv_main2 <-  glove$fit_transform(dtm, n_iter = 10, n_threads = 8)
-wv_main2 <-  glove$fit_transform(dtm, convergence_tol = 0.01, n_threads = 8)
-
-wv_context2 = glove2$components
-
-word_vectors2 = wv_main2 + t(wv_context2)
-
-```
 
 ## Cosine similarities for Term Co-Occurrence Matrix
 
 Cosine similarities per target word: 
 
 "work" should include both nouns and verbs, unfortunately
+
+```{r}
+
+# tokens <- map(tokens, ~ str_to_lower(str_subset(.x, stop_punctuation_regex, negate=T)))
+
+map(~ sim2(x=word_vectors, y = word_vectors[.x, , drop = FALSE], method = "cosine", norm = "l2") .x )
+
+```
+
+
 
 ```{r}
 
@@ -351,12 +326,18 @@ cos_interview <- sim2(x = word_vectors, y = word_vectors["interview", , drop=FAL
 ## Target word "review"
 cos_evaluate <- sim2(x = word_vectors, y = word_vectors["evaluate", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
 
+## Target word "orientation"
+cos_orientation <- sim2(x = word_vectors, y = word_vectors["orientation", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
+
+## Target word "onboard"
+cos_onboard <- sim2(x = word_vectors, y = word_vectors["onboard", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
+
 
 ```
 
 
-```{r}
 
+```{r}
 cos_tbl_work <- as_tibble(cos_work, rownames="words") %>% 
   rename(cos_sim = value) %>% 
   mutate(target = "work") %>% 
@@ -380,19 +361,60 @@ cos_tbl_interview <- as_tibble(cos_interview, rownames="words") %>%
 cos_tbl_evaluate <- as_tibble(cos_evaluate, rownames="words") %>% 
   rename(cos_sim = value) %>%
   mutate(target = "evaluate") %>% 
-  filter(cos_sim < 1, cos_sim >= 0.5)
+  filter(cos_sim < 1, cos_sim >= 0.5) %>% 
+  filter(!str_detect(words, "evaluate"))
+
+cos_tbl_orientation <- as_tibble(cos_orientation, rownames="words") %>% 
+  rename(cos_sim = value) %>%
+  mutate(target = "orientation") %>% 
+  filter(cos_sim < 1, cos_sim >= 0.5) %>% 
+  filter(!str_detect(words, "orientation"))
+
+cos_tbl_onboard <- as_tibble(cos_onboard, rownames="words") %>% 
+  rename(cos_sim = value) %>%
+  mutate(target = "onboard") %>% 
+  filter(cos_sim < 1, cos_sim >= 0.5) %>% 
+  filter(!str_detect(words, "onboard"))
 
 ## Add target word to facilitate join
 
-## Join the target word tibbles
-cos_tbl1 <- full_join(slice(cos_tbl_work, 50), slice(cos_tbl_meeting, 50))
 
-cos_tbl2 <- full_join(slice(cos_tbl_job, 50), slice(cos_tbl_interview, 50))
+```
+
+Combine table names into C()
+
+```{r}
+
+cos_tbl_c <- c("cos_tbl_work", 
+               "cos_tbl_meeting",
+               "cos_tbl_job",
+               "cos_tbl_interview",
+               "cos_tbl_evaluate") %>% writeLines()
+
+```
+
+
+```{r}
+
+
+## Join the target word tibbles
+cos_tbl1 <- full_join(cos_tbl_work, cos_tbl_meeting)
+
+cos_tbl2 <- full_join(cos_tbl_job, cos_tbl_interview)
 
 cos_tbl3 <- full_join(cos_tbl1, cos_tbl2)
 
-cos_tbl <- full_join(cos_tbl3, slice(cos_tbl_evaluate, 50))
+cos_tbl <- full_join(cos_tbl3, cos_tbl_evaluate)
 
+cos_tbl %>% arrange(desc(cos_sim))
+
+cos_tbl <- bind_rows(cos_tbl_work,
+                     cos_tbl_meeting,
+                     cos_tbl_job,
+                     cos_tbl_interview,
+                     cos_tbl_evaluate,
+                     cos_tbl_orientation,
+                     cos_tbl_onboard)
 
 ```
 
@@ -406,9 +428,73 @@ Write CSV
 
 Visualize
 
+```{r}
+
+cos_tbl %>% 
+  filter(target == "work") %>% 
+  arrange(cos_sim)
+
+```
+
+
+Plot along line
+
+First we need to create a new table with the target word cosine similarities in one column and the other target words in another column with their cosines in another column. 
+
+```{r plotcompare, dependson = "cos_tbl", fig.width=10, fig.height=5, fig.cap="Comparing the Cosine Similarities of Target Words"}
+
+cos_tbl_work2 <-
+  cos_tbl %>% 
+  pivot_wider(names_from = target, values_from = cos_sim) %>%
+  pivot_longer(meeting:evaluate,
+               names_to = "target", values_to = "cos_sim")
+
+ggplot(cos_tbl_work2, aes(x = cos_sim, y = work,
+                          color = abs(work - cos_sim))) +
+  geom_abline(color = "gray40", lty = 2) +
+  geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
+  geom_text(aes(label = words), check_overlap = TRUE, vjust = 1.5) +
+  scale_color_gradient(limits = c(0, 0.5), 
+                       low = "darkslategray4", high = "gray75") +
+  facet_wrap(~target, ncol = 3) +
+  theme(legend.position="none") +
+  labs(y = "work", x = NULL)
+
+
+```
+
+Plot by target word pairs
+
+```{r plotcompare, dependson = "cos_tbl", fig.width=10, fig.height=5, fig.cap="Comparing the Cosine Similarities of Pairs of Target Words"}
+
+unique(cos_tbl$target) %>% writeLines()
+
+cos_tbl_orientation_onboard <-
+  cos_tbl %>% 
+  pivot_wider(names_from = target, values_from = cos_sim) %>%
+  select(words, orientation, onboard) %>% 
+  pivot_longer(onboard, names_to = "target", values_to = "cos_sim")
+
+ggplot(cos_tbl_orientation_onboard, aes(x = cos_sim, y = orientation,
+                          color = abs(orientation - cos_sim))) +
+  geom_abline(color = "gray40", lty = 2) +
+  geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
+  geom_text(aes(label = words), check_overlap = TRUE, vjust = 1.5) +
+  scale_color_gradient(limits = c(0, 0.5), 
+                       low = "darkslategray4", high = "gray75") +
+  facet_wrap(~target, ncol = 3) +
+  theme(legend.position="none") +
+  labs(y = "orientation", x = NULL)
+
+
+```
+This didn't work, which might suggest that there is not any overlapping words between these two. 
+
+Examine each individually and see . But they should still show up...
+
 
 ```{r}
-# arrange(proportion)
+cos_tbl %>% arrange(cos_sim)
 # 
 # ggplot(slice(cos_tbl), aes(x = words, y = cos_sim)) + geom_col()
 

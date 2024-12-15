@@ -8,12 +8,13 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo=TRUE, include=TRUE, comment="")
+knitr::opts_chunk$set(echo=TRUE, include=TRUE, comment="", fig.path = "images/")
 library(tidyverse)
 library(dplyr)
 library(purrr)
 library(stringr)
 library(readxl)
+library(ggplot2)
 
 # web scraping
 library(rvest)
@@ -32,9 +33,9 @@ library(tidytext)
 
 ```{r}
 
-subgenres_news <- read_delim("../data_private/subgenreCodes.txt", col_names = F) %>% 
-  rename(code = X1, subgenre = X2) %>%  
-  filter(code %in% 135:142)
+# subgenres_news <- read_delim("../data_private/subgenreCodes.txt", col_names = F) %>% 
+  # rename(code = X1, subgenre = X2) %>%  
+  # filter(code %in% 135:142)
 
 
 ```
@@ -45,7 +46,7 @@ Read the data in
 
 ```{r}
 
-academic_core <- read_excel("data_private/acadCore.xlsx", sheet = 2)
+# academic_core <- read_excel("data_private/acadCore.xlsx", sheet = 2)
 
 ```
 
@@ -73,25 +74,25 @@ I deleted this data from the project directory for now, so the code won't work.
 ```{r}
 gorick_list <- read_html("https://www.gorick.com/blog/workplace-jargon-dictionary")
 
-gorick_list <- gorick_list %>% 
-  html_elements("h3") %>% 
-  html_text() 
+gorick_list <- gorick_list %>%
+  html_elements("h3") %>%
+  html_text()
 
 
-gorick_list <- gorick_list %>% 
-  str_remove("^.") %>% 
-  str_remove(".$") 
+gorick_list <- gorick_list %>%
+  str_remove("^.") %>%
+  str_remove(".$")
 
 
 ## Try to get this to remove strings with acronyms and maybe numbers
-gorick_list <- gorick_list %>% 
-  str_subset("^[A-Z]{2,9}$", negate=T) %>% 
+gorick_list <- gorick_list %>%
+  str_subset("^[A-Z]{2,9}$", negate=T) %>%
   str_subset("^[A-Z]{")
 
 gorick_list <- gorick_list %>%
   tolower()
 
-gorick_tbl <- tibble(word = gorick_list) 
+gorick_tbl <- tibble(word = gorick_list)
 
 gorick_tbl %>% slice(1:20)
  
@@ -110,10 +111,10 @@ test_acronyms %>%
 unlist(str_extract_all(test_acronyms,"[ABCDEFGHIJKLMNOPQRSTUVWXYZ]{2}+"))
 list(str_extract_all(test_acronyms,"[ABCDEFGHIJKLMNOPQRSTUVWXYZ]{2}+"))
 test_acronyms %>% 
-  str_subset("[ABCDEFGHIJKLMNOPQRSTUVWXYZ]{2}+") ## Returns any whole string with at least two adjacent capitals 
+  str_subset("[A-Z]{2}+") ## Returns any whole string with at least two adjacent capitals 
 
 test_acronyms %>% 
-  str_view("^[ABCDEFGHIJKLMNOPQRSTUVWXYZ]{2,9}$") ## GOLD. Returns strings with only a series of capitals between 2 and 9, but nothing after or before it (i.e., lowercase letters)
+  str_view("^[A-Z]{2,9}$") ## GOLD. Returns strings with only a series of capitals between 2 and 9, but nothing after or before it (i.e., lowercase letters)
 
 
   
@@ -124,10 +125,30 @@ test_acronyms %>%
 
 ```{r}
 
-promova_list <- read_html("https://promova.com/english-vocabulary/occupations-and-jobs-english-vocabulary")
-promova_list %>% 
+promova_list <- read_html("https://promova.com/english-vocabulary/occupations-and-jobs-english-vocabulary") %>% 
   html_elements("li span") %>% 
   html_text()
+
+promova_list <- promova_list[10:63] %>% 
+  str_extract("^.+\\:") %>% 
+  str_to_lower %>% 
+  str_remove("\\:")
+
+promova_list <- promova_list[27:54] 
+
+# promova_list <- promova_list %>%
+#   str_remove("ing")
+
+promova_table <- promova_list %>% 
+  tibble(word = `.`) 
+
+stoplist <- c("cover letter", "job description", "background check", "probationary period", "job offer", "telecommuting/remote working", "salary expectations", "out of office")
+
+promova_table <- promova_table %>% 
+  filter(!word %in% stoplist)
+
+promova_table$word <- promova_table$word %>% 
+  str_remove("ing")
 
 ```
 

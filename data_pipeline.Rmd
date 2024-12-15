@@ -8,7 +8,7 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo=TRUE, include=TRUE, comment="")
+knitr::opts_chunk$set(echo=TRUE, include=TRUE, comment="", fig.path = "images/")
 
 library(tidyverse)
 library(readxl)
@@ -25,6 +25,8 @@ library(Rling)
 library(cluster)
 library(tm)
 ```
+
+
 
 # Read in data
 
@@ -98,7 +100,7 @@ POS Tags [reference list](https://ucrel.lancs.ac.uk/claws7tags.html)
 
 ```{r}
 
-pos_filtered <- str_to_lower(c("JJ", "JJR", "JJT", "JK", "NN", "NN1", "NN2", "NNA", "NNB", "NNL1", "NNL2", "NNO", "NNO2", "NNT1", "NNT2", "NNU", "NNU1", "NNU2", "VV0", "VVD", "VVG", "VVGK", "VVI", "VVN", "VVNK", "VVZ"))
+pos_filtered <- c("jj", "jjr", "jjt", "jk", "nn", "nn1", "nn2", "nna", "nnb", "nnl1", "nnl2", "nno", "nno2", "nnt1", "nnt2", "nnu", "nnu1", "nnu2", "vv0", "vvd", "vvg", "vvgk", "vvi", "vvn", "vvnk", "vvz")
 
 pos_filtered_c <- str_c(pos_filtered, collapse="|")
 
@@ -283,7 +285,7 @@ Write CSV
 
 ```{r}
 
-cos_tbl %>% slice_sample() %>% write_csv()
+# cos_tbl %>% slice_sample() %>% write_csv()
 
 ```
 
@@ -291,9 +293,9 @@ Visualize
 
 
 ```{r}
-arrange(proportion)
-
-ggplot(slice(cos_tbl), aes(x = words, y = cos_sim)) + geom_col()
+# arrange(proportion)
+# 
+# ggplot(slice(cos_tbl), aes(x = words, y = cos_sim)) + geom_col()
 
 ```
 
@@ -302,17 +304,17 @@ ggplot(slice(cos_tbl), aes(x = words, y = cos_sim)) + geom_col()
 
 # read_csv("data_private/test_cos_25k.csv")
 
-data_work <- read_csv("data_private/cosine_work.csv")
-
-data_work %>% head(20)
-
-data_work %>% summary()
-
-data_work %>% 
-  head(21) %>% 
-  ggplot(aes(words, cos_sim))+
-  geom_point(alpha = 0)+
-  geom_text(aes(label = words))
+# data_work <- read_csv("data_private/cosine_work.csv")
+# 
+# data_work %>% head(20)
+# 
+# data_work %>% summary()
+# 
+# data_work %>% 
+#   head(21) %>% 
+#   ggplot(aes(words, cos_sim))+
+#   geom_point(alpha = 0)+
+#   geom_text(aes(label = words))
 
 
 cos_tbl %>% 
@@ -326,18 +328,18 @@ cos_tbl %>%
 
 
 ```{r fig.align="center", echo = FALSE,fig.width = 14}
-cos_tbl_25k %>% 
+cos_tbl %>% 
   group_by(target) %>% 
-  slice(1:21) %>% 
+  slice(1:20) %>% 
   ggplot(aes(words, cos_sim))+
   geom_point(alpha = 0)+
   geom_text(aes(label = words, colour = target))
 
-data_work %>% 
-  head(50) %>% 
-  ggplot(aes(words, cos_sim))+
-  geom_point(alpha = 0)+
-  geom_text(aes(label = words))
+# data_work %>% 
+#   head(50) %>% 
+#   ggplot(aes(words, cos_sim))+
+#   geom_point(alpha = 0)+
+#   geom_text(aes(label = words))
 ```
 
 # Session info

@@ -170,6 +170,8 @@ stop_word_list
 
 ### Create vocabulary
 
+**Add stopwords in argument in create_vocabulary function**??
+
 ```{r}
 vocab <- create_vocabulary(it)
 
@@ -189,6 +191,7 @@ vocab %>% arrange(desc(term_count)) %>% head(100)
 
 # add argument term_count_max = 170000L)
 vocab <- prune_vocabulary(vocab, term_count_min = 2L)
+
 ```
 
 ## Create vectorizer and term co-occurrence matrix
@@ -214,6 +217,118 @@ word_vectors = wv_main + t(wv_context)
 
 ```
 
+
+
+
+
+## Building a DTM (Use 2)
+
+Source of demo: (text2vec 0.3)[https://dsnotes.com/text2vec-0-3/]
+
+## Create tokens
+
+- Remove punctuation and contractions (may already be removed from POS filtering)
+
+```{r}
+
+## Create tokens object as list
+
+tokens2 <- news_wlp %>% select(document_id, lemma) %>% chop(lemma) %>% pull(lemma, document_id) #%>% 
+  #as.list()
+
+## Keep names for dtm
+
+names(tokens2) <- unique(news_wlp$document_id)
+
+stop_punctuation_regex <- "[<p>]|[\\,\\.\\:\\;\\*\\@\\'\\\"\\-\\$\\(\\)\\?]|(\\-\\-)|('s)|('d)|('t)|(n't)|('ve)|('re)|('ll)"
+
+tokens2 <- map(tokens2, ~ str_to_lower(str_subset(.x, stop_punctuation_regex, negate=T)))
+
+tokens2[[1]] %>% head(50)
+
+```
+
+## Create iterator
+
+```{r}
+
+# Create vocabulary. Terms will be unigrams (simple words).
+it2 <- itoken(tokens2, progressbar = FALSE)
+
+```
+
+
+## Create and filter vocabulary for infrequent terms and stop-words
+
+### Create vocabulary
+
+**Add stopwords in argument in vocabulary function**??
+
+```{r}
+vocab2 <- create_vocabulary(it2, stopwords = stop_word_list)
+
+# Remove very infrequent terms using min term count =2
+```
+
+### Determine if need to remove frequent terms
+
+- Don't remove because some relevant content words
+
+```{r}
+
+## Not needed any longer
+# vocab <- vocab %>% filter(!term %in% stop_word_list)
+
+## Determine which max count you want to remove if any
+# vocab2 %>% arrange(desc(term_count)) %>% head(100)
+
+# add argument term_count_max = 170000L)
+vocab2 <- prune_vocabulary(vocab2, term_count_min = 2L, doc_proportion_max = 0.5)
+str(vocab2) # should be list of 4: vocab, ngram, doc count, stopwords
+```
+
+## Create vectorizer and term co-occurrence matrix
+
+```{r}
+
+## Reinitialize it2
+
+it2 <- itoken(tokens2)
+
+vectorizer2 <- vocab_vectorizer(vocab2)
+
+dtm <- create_dtm(it2, vectorizer2)
+
+identical(rownames(dtm), unique(news_wlp$document_id)) #TRUE
+
+# dgcm <- create_dtm(it2, vectorizer2, type = "dgCMatrix")
+# dgtm <- create_dtm(it, vectorizer, type = "dgTMatrix")
+# dgrm <- create_dtm(it, vectorizer, type = "dgRMatrix")
+# csm <- create_dtm(it, vectorizer, type = "CsparseMatrix")
+# tsm <- create_dtm(it, vectorizer, type = "TsparseMatrix")
+# rsm <- create_dtm(it, vectorizer, type = "RsparseMatrix")
+
+```
+
+## Create vectors
+
+```{r}
+
+glove2 <-  GlobalVectors$new(rank = 50, x_max = 10)
+
+wv_main2 <-  glove$fit_transform(dtm, n_iter = 10, convergence_tol = 0.01, n_threads = 8)
+
+wv_main2 <-  glove$fit_transform(dtm, n_iter = 10, convergence_tol = 0.01)
+wv_main2 <-  glove$fit_transform(dtm, n_iter = 10, n_threads = 8)
+wv_main2 <-  glove$fit_transform(dtm, convergence_tol = 0.01, n_threads = 8)
+
+wv_context2 = glove2$components
+
+word_vectors2 = wv_main2 + t(wv_context2)
+
+```
+
+## Cosine similarities for Term Co-Occurrence Matrix
 
 Cosine similarities per target word: 
 

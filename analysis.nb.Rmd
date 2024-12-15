@@ -500,7 +500,7 @@ tokens_wlp <- news_wlp8mil %>% select(document_id, lemma) %>% chop(lemma) %>% pu
 
 tokens_wlp <- map(tokens_wlp, ~ str_to_lower(str_subset(.x, stop_punctuation_regex, negate=T)))
 
-
+names(tokens)
 
 # Create vocabulary. Terms will be unigrams (simple words).
 it <- itoken(tokens_wlp, progressbar = FALSE)
@@ -520,6 +520,26 @@ word_vectors = wv_main + t(wv_context)
 
 ```
 
+Try DTM... (from pipeline code)
+
+```{r}
+dgcm <- create_dtm(it, vectorizer, type = "dgCMatrix")
+dgtm <- create_dtm(it, vectorizer, type = "dgTMatrix")
+dgrm <- create_dtm(it, vectorizer, type = "dgRMatrix")
+csm <- create_dtm(it, vectorizer, type = "CsparseMatrix")
+tsm <- create_dtm(it, vectorizer, type = "TsparseMatrix")
+rsm <- create_dtm(it, vectorizer, type = "RsparseMatrix")
+```
+
+DTM glove vectors
+
+```{r}
+glove <-  GlobalVectors$new(rank = 50, x_max = 10)
+wv_main <-  glove$fit_transform(rsm, n_iter = 10, convergence_tol = 0.01, n_threads = 8)
+wv_context = glove$components
+word_vectors = wv_main + t(wv_context)
+
+```
 
 
 

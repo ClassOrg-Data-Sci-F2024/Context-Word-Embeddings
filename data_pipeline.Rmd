@@ -61,36 +61,38 @@ news_wlp <- c("data_private/wlp_newspaper_lsp/wlp_news_1990.txt",
   
 nrow(news_wlp)
   
-c("data_private/wlp_newspaper_lsp/wlp_news_1990.txt",
-  "data_private/wlp_newspaper_lsp/wlp_news_1991.txt") %>%
-  map(read_tsv, col_names = F))
-
-test9091 <- c("data_private/wlp_newspaper_lsp/wlp_news_1990.txt",
-  "data_private/wlp_newspaper_lsp/wlp_news_1991.txt") %>%
-  read_tsv(col_names = F)
-
-test90_12 <- c("data_private/wlp_newspaper_lsp/wlp_news_1990.txt",
-  "data_private/wlp_newspaper_lsp/wlp_news_2012.txt") %>%
-  read_tsv(col_names = F)
-
-# test for the presence of each dataset in the read object
-
-start_docs <- c("##3000001", "##3000010", "##3000061", "##3000125", "##4113706")
-
-news_wlp$X1[news_wlp$X1 %in% start_docs]
-
-news_wlp %>% 
-  filter(X1 %in% start_docs)
-
-news_wlp %>% 
-  filter(str_detect(X1, c("3000001", "3000061")))
-
-test91 <- c("data_private/wlp_newspaper_lsp/wlp_news_1990.txt") %>% read_tsv(col_names=F)
-test91 <- c("data_private/wlp_newspaper_lsp/wlp_news_1990.txt") %>% read_tsv()
-
-test91 %>% 
-  filter(`##3000001` %in% start_docs)
+# c("data_private/wlp_newspaper_lsp/wlp_news_1990.txt",
+#   "data_private/wlp_newspaper_lsp/wlp_news_1991.txt") %>%
+#   map(read_tsv, col_names = F))
+# 
+# test9091 <- c("data_private/wlp_newspaper_lsp/wlp_news_1990.txt",
+#   "data_private/wlp_newspaper_lsp/wlp_news_1991.txt") %>%
+#   read_tsv(col_names = F)
+# 
+# test90_12 <- c("data_private/wlp_newspaper_lsp/wlp_news_1990.txt",
+#   "data_private/wlp_newspaper_lsp/wlp_news_2012.txt") %>%
+#   read_tsv(col_names = F)
+# 
+# # test for the presence of each dataset in the read object
+# 
+# start_docs <- c("##3000001", "##3000010", "##3000061", "##3000125", "##4113706")
+# 
+# news_wlp$X1[news_wlp$X1 %in% start_docs]
+# 
+# news_wlp %>% 
+#   filter(X1 %in% start_docs)
+# 
+# news_wlp %>% 
+#   filter(str_detect(X1, c("3000001", "3000061")))
+# 
+# test91 <- c("data_private/wlp_newspaper_lsp/wlp_news_1990.txt") %>% read_tsv(col_names=F)
+# test91 <- c("data_private/wlp_newspaper_lsp/wlp_news_1990.txt") %>% read_tsv()
+# 
+# test91 %>% 
+#   filter(`##3000001` %in% start_docs)
   
+news_wlp <- news_wlp %>% as_tibble()
+
 ```
 # Clean the data
 
@@ -101,18 +103,17 @@ test91 %>%
 - Fill document_id column NAs with document_id
 
 ```{r}
-
-## Rename columns
-news_wlp <- news_wlp %>%
-  select(word = X1, lemma = X2, pos = X3)
-
 ## Add column marked by document number (when lemma & pos are NA), keep the rest NA
+
 news_wlp <- news_wlp %>%
-  mutate(document_id = ifelse(is.na(news_wlp$pos) & is.na(news_wlp$lemma), str_sub(word, 3,9),NA))
+  mutate(document_id = ifelse(str_detect(word, "^##\\d{7}")==T, str_sub(word, 3,9), NA)) %>% 
+  fill(document_id)
 
 ## Replace NAs with document_id 
-news_wlp <- news_wlp %>%
-  fill(document_id)
+# news_wlp <- news_wlp %>%
+#   fill(document_id)
+
+unique(news_wlp$document_id) %>% length()
 
 news_wlp %>% head()
 
@@ -130,16 +131,19 @@ POS Tags [reference list](https://ucrel.lancs.ac.uk/claws7tags.html)
 
 ```{r}
 
-pos_filtered <- c("jj", "jjr", "jjt", "jk", "nn", "nn1", "nn2", "nna", "nnb", "nnl1", "nnl2", "nno", "nno2", "nnt1", "nnt2", "nnu", "nnu1", "nnu2", "vv0", "vvd", "vvg", "vvgk", "vvi", "vvn", "vvnk", "vvz")
-
-pos_filtered_c <- str_c(pos_filtered, collapse="|")
+pos_keep <- c("jj|jk|nn|vv")
 
 news_wlp <- news_wlp %>% 
-  filter(str_detect(pos, pos_filtered_c))
+  filter(str_detect(pos, pos_keep))
 
 news_wlp %>% head()
 
+news_wlp %>% nrow()
+unique(news_wlp$document_id) %>% length()
+
 ```
+Filtering the dataset to keep only adjectives, nouns, and verbs reduced it to 37k rows from 108mil rows (more accurately, "words" now because punctuation is removed by pos == "y"), but the number of documents is still 57026. 
+
 
 # Build a TCM Matrix
 
@@ -154,12 +158,13 @@ In this step:
 
 ```{r}
 
+## Create punctuation and contractions list to be removed just in case
+stop_punctuation_regex <- "[\\,\\.\\:\\;\\*\\@\\'\\\"\\-\\$\\(\\)\\?]|(\\-\\-)|('s)|('d)|('t)|(n't)|('ve)|('re)|('ll)"
+
 ## Create tokens object as list
 
 tokens <- news_wlp %>% select(document_id, lemma) %>% chop(lemma) %>% pull(lemma, document_id) #%>% 
   #as.list()
-
-stop_punctuation_regex <- "[\\,\\.\\:\\;\\*\\@\\'\\\"\\-\\$\\(\\)\\?]|(\\-\\-)|('s)|('d)|('t)|(n't)|('ve)|('re)|('ll)"
 
 tokens <- map(tokens, ~ str_to_lower(str_subset(.x, stop_punctuation_regex, negate=T)))
 
@@ -172,20 +177,20 @@ tokens[[1]] %>% head(50)
 
 ```
 
-## Create iterator
+## TCM Continued
+
+- Iterator  
+- Vocabulary & Remove Stopwords   
+- 
 
 ```{r}
 
-# Create vocabulary. Terms will be unigrams (simple words).
+# Create iterators. Terms will be unigrams (simple words).
 it <- itoken(tokens, progressbar = FALSE)
 
-```
+##Create and filter vocabulary for infrequent terms and stop-words
 
-### Create and filter vocabulary for infrequent terms and stop-words
-
-#### Create stop-word list
-
-```{r}
+## Create stopwords
 
 ## Make table with tidytext "snowball" and tm "en" and my own additions
   
@@ -206,21 +211,17 @@ stop_word_list
 
 ```
 
-### Create vocabulary
+### Create vocabulary and vectorizer
 
 **Add stopwords in argument in create_vocabulary function**??
-
-```{r}
-vocab <- create_vocabulary(it, stopwords = stop_word_list)
-
-```
-
 
 **Determine if need to remove frequent terms**
 
 - Don't remove because some relevant content words
 
 ```{r}
+vocab <- create_vocabulary(it, stopwords = stop_word_list)
+
 
 # vocab <- vocab %>% filter(!term %in% stop_word_list)
 
@@ -231,21 +232,16 @@ vocab <- create_vocabulary(it, stopwords = stop_word_list)
 # add argument term_count_max = 170000L)
 vocab <- prune_vocabulary(vocab, term_count_min = 2L)
 
+vectorizer <- vocab_vectorizer(vocab)
 
 ```
 
-### Create vectorizer and term co-occurrence matrix
+### Create Term Co-occurrence Matrix and Vectors
 
 ```{r}
-vectorizer <- vocab_vectorizer(vocab)
 
 tcm <- create_tcm(it, vectorizer, skip_grams_window = 5L)
 
-```
-
-### Create vectors
-
-```{r}
 
 glove <-  GlobalVectors$new(rank = 50, x_max = 10)
 
@@ -487,15 +483,15 @@ consult2 <- as_tibble(consult1, rownames="words") %>%
 
 
 ## Join the target word tibbles
-cos_tbl1 <- full_join(cos_tbl_work, cos_tbl_meeting)
-
-cos_tbl2 <- full_join(cos_tbl_job, cos_tbl_interview)
-
-cos_tbl3 <- full_join(cos_tbl1, cos_tbl2)
-
-cos_tbl <- full_join(cos_tbl3, cos_tbl_evaluate)
-
-cos_tbl %>% arrange(desc(cos_sim))
+# cos_tbl1 <- full_join(cos_tbl_work, cos_tbl_meeting)
+# 
+# cos_tbl2 <- full_join(cos_tbl_job, cos_tbl_interview)
+# 
+# cos_tbl3 <- full_join(cos_tbl1, cos_tbl2)
+# 
+# cos_tbl <- full_join(cos_tbl3, cos_tbl_evaluate)
+# 
+# cos_tbl %>% arrange(desc(cos_sim))
 
 cos_tbl <- bind_rows(meeting2,
                job2, 
@@ -528,12 +524,13 @@ cos_tbl %>%
 
 **Use this to present the data in the report**
 
-```{r}
-## Benchmark has the lowest number, so we will restrict to 15
+```{r plotcompare, dependson = "cos_tbl_15", fig.width=10, fig.height=5, fig.cap="Output Words with Highest Cosine by Target Word"}
+## Benchmark has the lowest number, so we will restrict to 32
 
 cos_tbl_15 <- cos_tbl %>% 
   group_by(target) %>% 
   slice(1:15)
+
 cos_tbl_15 %>% 
   group_by(target) %>% 
   arrange(words) %>% 
@@ -542,43 +539,18 @@ cos_tbl_15 %>%
 
 
 ```{r}
-cos_tbl_15 %>% 
-  select(words, target) %>% 
-  pivot_wider(names_from = "target", values_from = "words", values_fn=list) %>%  
-  select(-value) %>% 
-  unchop(action) 
-
-cos_tbl_15 %>% 
-  filter(target == "action") %>% 
-  pull(words) 
-
-tibble(~ seed_list_asc | cos_tbl_15$words)
-
-cos_tbl_15 %>% 
-  unnest_wider(target)
-
-map(cos_tbl_15, ~ filter(cos_tbl_15$target == .x)) %>% pull(words))
-  
-tibble()
-
-cos_tbl_15$target
-
-tibble()
-
-library(data.table)
-
-dcast(as.data.table(cos_tbl_15), words ~ target)
-
-```
+# cos_tbl_15 %>% 
+#   select(words, target) %>% 
+#   pivot_wider(names_from = "target", values_from = "words", values_fn=list) %>%  
+#   select(-value) %>% 
+#   unchop(action) 
+# 
+# cos_tbl_15 %>% 
+#   filter(target == "action") %>% 
+#   pull(words) 
 
 
-```{r table1, tidy=FALSE}
 
-table1 <- tribble(
-  ~"Words similar to", ~seed_list)
-)
-knitr::kable((data1), booktabs = TRUE,
-caption = 'A test table.')
 ```
 
 

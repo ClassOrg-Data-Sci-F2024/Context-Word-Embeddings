@@ -8,12 +8,9 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo=TRUE, include=TRUE, comment="")
+knitr::opts_chunk$set(echo=TRUE, include=TRUE, comment="", fig.path = "images/")
+
 library(tidyverse)
-library(tidyr)
-library(dplyr)
-library(purrr)
-library(stringr)
 library(readxl)
 
 # web scraping
@@ -28,6 +25,8 @@ library(Rling)
 library(cluster)
 library(tm)
 
+# visualization
+library(tablesgg)
 ```
 
 # Run pipeline with randomly sampled data
@@ -36,18 +35,69 @@ library(tm)
 
 # Read in data
 
-- Files: 1 of 22 in (analysis.Rmd)[analysis.Rmd] and (analysis.nb.Rmd)[analysis.nd.Rmd]  
-- Type: text  
-- Contents: Document number, text   
+> Data is already lemmatized and POS-tagged.
 
-Method  
+```{r}
 
-- Assign to object `news_sample`  
-- Use `c()` to combine all relative paths of the files as strings in character vector  
-- Read in using `read_lines()`  
-- Use `map()` to iterate `read_lines()` over all 22 files at once  
-- Use `unlist()` to turn from list containing character vectors (each doc's text) into character vector containing elements (each doc's text)  
-- Read in from `data_private/` folder within this repo but ignored with `.gitignore` 
+news_wlp_sample <- c("data_private/wlp_newspaper_lsp/wlp_news_1990.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_1991.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_1992.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_1993.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_1994.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_1995.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_1996.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_1997.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_1998.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_1999.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2000.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2001.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2002.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2003.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2004.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2005.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2006.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2007.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2008.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2009.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2010.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2011.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2012.txt") %>% 
+  map_dfr(~read.delim(.x, header = FALSE, col.names = c("word", "lemma", "pos"), skipNul = TRUE, quote = ""))
+  
+nrow(news_wlp_sample)
+  
+news_wlp_sample <- news_wlp_sample %>% as_tibble()
+
+```
+
+# Clean the data
+
+## Tidy columns
+
+- Rename "word", "lemma", "pos"  
+- Add document_id column  
+- Fill document_id column NAs with document_id
+
+```{r}
+## Add column marked by document number (when lemma & pos are NA), keep the rest NA
+
+news_wlp_sample <- news_wlp_sample %>%
+  mutate(document_id = ifelse(str_detect(word, "^##\\d{7}")==T, str_sub(word, 3,9), NA)) 
+
+## Note: The following code was not put in the preceding pipe because of knitting issues.
+
+## Replace NAs with document_id 
+news_wlp_sample <- news_wlp_sample %>%
+  fill(document_id)
+
+news_wlp_sample <- news_wlp_sample %>% 
+  slice_sample(n = )
+
+unique(news_wlp$document_id) %>% length()
+
+news_wlp %>% head()
+
+```
 
 ## Plan: Write sample data with approx 4,400 words
 

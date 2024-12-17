@@ -1,0 +1,888 @@
+---
+title: "Analysis of Workplace-Themed Term Co-Occurrence Matrices"
+author: "Ben Kubacki"
+date: "20 November 2024"
+output: 
+  github_document:
+    toc: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=TRUE, include=TRUE, comment="")
+
+library(tidyverse)
+library(readxl)
+
+# web scraping
+library(rvest)
+
+# tokenizer
+library(tidytext)
+
+# word embeddings
+library(text2vec)
+library(Rling)
+library(cluster)
+library(tm)
+```
+
+# Load packages in hidden setup chunk (see list below) 
+
+```{r}
+
+# library(tidyverse)
+# library(readxl)
+# 
+# # web scraping
+# library(rvest)
+# 
+# # tokenizer
+# library(tidytext)
+# 
+# # word embeddings
+# library(text2vec)
+# library(Rling)
+# library(cluster)
+# library(tm)
+
+```
+
+> Not intended for general audience. See analysis.md
+
+# Read in data
+
+- Files: 22  
+- Type: text  
+- Contents: Document number, text  
+- Text components: spaces, `#` paragraph or sentence separators  
+
+Method  
+
+- Assign to object `news_raw`  
+- Use `c()` to combine all relative paths of the files as strings in character vector  
+- Read in using `read_lines()`  
+- Use `map()` to iterate `read_lines()` over all 22 files at once  
+- Use `unlist()` to turn from list containing character vectors (each doc's text) into character vector containing elements (each doc's text)  
+- Read in from `data_private/` folder within this repo but ignored with `.gitignore`  
+
+```{r}
+news <- c("data_private/text_newspaper_lsp/w_news_1990.txt",
+           "data_private/text_newspaper_lsp/w_news_1991.txt",
+           "data_private/text_newspaper_lsp/w_news_1992.txt",
+           "data_private/text_newspaper_lsp/w_news_1993.txt",
+           "data_private/text_newspaper_lsp/w_news_1994.txt",
+           "data_private/text_newspaper_lsp/w_news_1995.txt",
+           "data_private/text_newspaper_lsp/w_news_1996.txt",
+           "data_private/text_newspaper_lsp/w_news_1997.txt",
+           "data_private/text_newspaper_lsp/w_news_1998.txt",
+           "data_private/text_newspaper_lsp/w_news_1999.txt",
+           "data_private/text_newspaper_lsp/w_news_2000.txt",
+           "data_private/text_newspaper_lsp/w_news_2001.txt",
+           "data_private/text_newspaper_lsp/w_news_2002.txt",
+           "data_private/text_newspaper_lsp/w_news_2003.txt",
+           "data_private/text_newspaper_lsp/w_news_2004.txt",
+           "data_private/text_newspaper_lsp/w_news_2005.txt",
+           "data_private/text_newspaper_lsp/w_news_2006.txt",
+           "data_private/text_newspaper_lsp/w_news_2007.txt",
+           "data_private/text_newspaper_lsp/w_news_2008.txt",
+           "data_private/text_newspaper_lsp/w_news_2009.txt",
+           "data_private/text_newspaper_lsp/w_news_2010.txt",
+           "data_private/text_newspaper_lsp/w_news_2011.txt",
+           "data_private/text_newspaper_lsp/w_news_2012.txt") %>% 
+  map(read_lines) %>% unlist()
+```
+
+use `separate()` and `str_remove()` to separate columns to two and remove ## in `text` data
+
+```{r}
+news <- news %>% tibble() 
+  
+news <- separate(news, c(document_id = 9), into = c("document_id", "text"), col = `.`,  remove = TRUE) 
+
+news$document_id <- news$document_id %>% 
+  str_remove("^..")
+
+news %>% head(20)
+
+## Option to use this method instead if it's cleaner
+
+# news <- tibble(news)
+# 
+# news <- news %>% 
+#   rename(document_id = news)
+
+unique(news$document_id) %>% length()
+
+```
+
+sample creation
+```{r}
+# slice_sample(news, n=20) %>% 
+#   str_split("\\s+") %>% length()
+
+```
+
+Read in WLP
+
+
+```{r}
+
+# c("data_private/wlp_newspaper_lsp/wlp_news_2012.txt") %>% 
+#   read_tsv(col_names = F)
+  
+  news_wlp <- c("data_private/wlp_newspaper_lsp/wlp_news_1990.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_1991.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_1992.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_1993.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_1994.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_1995.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_1996.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_1997.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_1998.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_1999.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2000.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2001.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2002.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2003.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2004.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2005.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2006.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2007.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2008.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2009.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2010.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2011.txt",
+           "data_private/wlp_newspaper_lsp/wlp_news_2012.txt") %>% 
+  read_tsv(col_names = F)
+
+## news_wlp = news_wlp2 (same input)
+
+```
+
+POS Tags [reference list](https://ucrel.lancs.ac.uk/claws7tags.html)
+
+```{r}
+
+pos_filtered <- str_to_lower(c("JJ", "JJR", "JJT", "JK", "NN", "NN1", "NN2", "NNA", "NNB", "NNL1", "NNL2", "NNO", "NNO2", "NNT1", "NNT2", "NNU", "NNU1", "NNU2", "VV0", "VVD", "VVG", "VVGK", "VVI", "VVN", "VVNK", "VVZ"))
+
+pos_filtered_c <- str_c(pos_filtered, collapse="|")
+
+
+```
+
+write sample data
+
+```{r}
+
+
+
+```
+
+
+Fix columns
+
+```{r}
+
+news_wlp <- news_wlp %>%
+  select(word = X1, lemma = X2, pos = X3)
+
+# news_wlp2 <- news_wlp2 %>%
+#   select(word = X1, lemma = X2, pos = X3)
+```
+
+Successful code to get column with document_id!
+
+```{r}
+
+# news_wlp <- news_wlp %>%
+#   mutate(document_id = word)
+
+news_wlp <- news_wlp %>%
+  mutate(document_id = ifelse(is.na(news_wlp$pos) & is.na(news_wlp$lemma), str_sub(word, 3,9),NA))
+
+news_wlp <- news_wlp %>%
+  fill(document_id)
+
+news_wlp %>%
+  nrow()
+
+news_wlp$document_id %>%
+  unique() %>% length()
+
+news_wlp %>% head()
+
+## testing news_wlp2 with new fill method
+# news_wlp2 <- news_wlp2 %>%
+#   mutate(document_id = word)
+
+str_view(news_wlp2$word, "^##\\d") %>% print(n=10)
+
+news_wlp2 <- news_wlp2 %>%
+  mutate(document_id = ifelse(str_detect(word, "^##\\d{7}")==T, str_sub(word, 3,9), NA))
+
+```
+
+
+What pos types are there?
+
+```{r}
+
+unique(news_wlp$pos)
+
+```
+
+
+```{r}
+
+news_wlp %>% distinct(news_wlp$document_id) %>% str_detect("3000001") ## TRUE
+
+news_wlp %>% distinct(news_wlp$document_id) %>% str_detect("3058375") ## FALSE
+news_wlp %>% distinct(news_wlp$document_id) %>% str_detect("3032382") ## TRUE
+
+news_wlp2 %>% distinct(news_wlp2$document_id) %>% str_detect("3000001") ## TRUE
+
+news_wlp2 %>% distinct(news_wlp2$document_id) %>% str_detect("3058375") ## FALSE
+news_wlp2 %>% distinct(news_wlp2$document_id) %>% str_detect("3032382") ## TRUE
+
+
+
+
+```
+
+
+Create test data frame
+
+```{r}
+
+# news_test <- news %>% head()
+
+# news20 <- news %>% slice(1:20)
+# news2000 <- news %>% slice(1:2000)
+# news4000 <- news %>% slice(1:4000)
+news8000 <- news %>% slice(1:8000)
+
+news25k <- news %>% slice(1:25000)
+
+news8000 %>% tail()
+
+# news_wlp %>% filter(document_id == "3058375")
+
+news_wlp8mil <- news_wlp %>% slice(1:8000000)
+
+news_wlp80000 <- news_wlp %>% slice(1:80000) %>% 
+  filter(!lemma %in% stopwords(kind = "en")) %>% 
+  filter(!lemma %in% c(".", "<p>", ","))
+
+# news_wlp80000$lemma %>% str_detect("^the$")
+# news_wlp80000$lemma %>% str_view("^the$")
+# news_wlp80000$lemma %>% str_extract("^the$")
+
+```
+
+
+Test filtering POS
+
+- Need to str_subset so that it recognizes 
+
+```{r}
+
+pos_test <- c("JJ|FF")
+
+test_set <- tibble(a = c("JJ", "JJ_T", "NNS", "NN_FF"), b = c(1, 2, 3, 4), c = c("a", "b", "c", "d"))
+
+test_set %>% 
+  filter(str_detect(a, pos_test))
+
+news_wlp8mil %>% 
+  filter(str_detect(pos, pos_filtered_c)) %>% 
+  print(n=200)
+
+```
+
+
+## Continue with TCM matrix for X rows
+
+Source of demo, including object names, code, and comments inside code: (Selivanov, 2023)[https://cran.r-project.org/web/packages/text2vec/vignettes/glove.html]
+
+"You can achieve much better results by experimenting with skip_grams_window and the parameters of the GloVe class (including word vectors size and the number of iterations)."
+
+Visualize before running: 
+
+```{r create sample & summarize}
+
+news25k <- news %>% slice(1:25000)
+
+news25k %>% head()
+
+news25k %>% 
+  summary()
+
+```
+
+show all steps of tcm creation
+
+```{r tcm steps for visualization}
+
+news25k <- news %>% slice(1:25000)
+
+# Create iterator over tokens
+tokens <- space_tokenizer(news25k$text)
+
+# Create vocabulary. Terms will be unigrams (simple words).
+it <- itoken(tokens, progressbar = FALSE)
+vocab <- create_vocabulary(it)
+# Remove very frequent and very infrequent terms using min term count
+vocab <- prune_vocabulary(vocab, term_count_min = 2L)
+vocab[!2 %in% stopword_list] %>% tail(50)
+vocab[!term %in% stopword_list] %>% tail(50)
+# Use our filtered vocabulary, create a vectorizer
+vectorizer <- vocab_vectorizer(vocab)
+tcm <- create_tcm(it, vectorizer, skip_grams_window = 5L))
+glove <-  GlobalVectors$new(rank = 50, x_max = 10)
+wv_main <-  glove$fit_transform(tcm, n_iter = 10, convergence_tol = 0.01, n_threads = 8)
+wv_context = glove$components
+word_vectors = wv_main + t(wv_context)
+
+
+
+```
+
+
+
+
+```{r}
+# Create iterator over tokens
+# tokens <- space_tokenizer(news20$text)
+# tokens <- space_tokenizer(news2000$text)
+# tokens <- space_tokenizer(news4000$text)
+# tokens <- space_tokenizer(news8000$text)
+
+
+# Create iterator over tokens
+tokens <- space_tokenizer(news25k$text)
+
+
+```
+
+Stop words for TEXT data
+
+- remove punctuation  
+- normalize for capitalization  
+- remove stop words  
+
+Result should be a list of character vectors
+
+```{r}
+tokens %>% head()
+
+## This worked
+# tokens[[2]] %>% str_subset("[<p>\\.\\,]", negate=T) %>% str_to_lower()
+# 
+# str_to_lower(str_subset(tokens[[2]], "[<p>\\.\\,]", negate=T))
+# 
+# ## Make a recipe
+# ~ str_to_lower(str_subset(.x, "[<p>\\.\\,]", negate=T))
+# 
+# ## Apply to full
+# map(tokens, ~ str_to_lower(str_subset(.x, "[<p>\\.\\,]", negate=T)))
+
+## KEEP
+
+stop_punctuation_regex <- "[<p>]|[\\,\\.\\:\\;\\*\\@\\'\\\"\\-\\$\\(\\)]|(\\-\\-)|('s)|('d)|('t)|(n't)|('ve)|('re)|('ll)"
+
+tokens <- map(tokens, ~ str_to_lower(str_subset(.x, stop_punctuation_regex, negate=T)))
+
+
+```
+
+Stop words for WLP data
+
+- remove punctuation  
+- normalize for capitalization  
+- remove stop words  
+
+Result should be a list of character vectors
+
+```{r}
+tokens_wlp %>% head()
+
+## This worked
+# tokens[[2]] %>% str_subset("[<p>\\.\\,]", negate=T) %>% str_to_lower()
+# 
+# str_to_lower(str_subset(tokens[[2]], "[<p>\\.\\,]", negate=T))
+# 
+# ## Make a recipe
+# ~ str_to_lower(str_subset(.x, "[<p>\\.\\,]", negate=T))
+# 
+# ## Apply to full
+# map(tokens, ~ str_to_lower(str_subset(.x, "[<p>\\.\\,]", negate=T)))
+
+## KEEP
+
+# stop_punctuation_regex <- "[<p>]|[\\,\\.\\:\\;\\*\\@\\'\\\"\\-\\$\\(\\)]|(\\-\\-)|('s)|('d)|('t)|(n't)|('ve)|('re)|('ll)"
+
+tokens_wlp <- map(tokens_wlp, ~ str_to_lower(str_subset(.x, stop_punctuation_regex, negate=T)))
+
+
+
+```
+
+test with stopwords
+
+```{r}
+
+tokens[[2]][! tokens %in% stop_words_snowball$word]
+
+list5 <- list(c("hi","i","be","ben"), c("here", "be","the","salary","and"), c("another","north"))
+
+list5[[2]] %>% str_subset(list5[[2]] %in% c("here","be", "and", "then", "sal"), negate=F)
+list5[[2]] %>% str_detect(c("here","be", "and", "then", "sal"))
+list5[[2]] %>% str_extract_all(c("here","be", "and", "then", "sal"))
+str_detect(c("here","the"), string = list5[[2]]) %>% reduce(`|`) 
+
+map(list5, ~ str_subset(.x, c("here","the"), negate=T)) 
+
+c <- str_c(c("here","the"), collapse="|")
+
+map(list5, ~ str_subset(.x, c, negate=T))
+
+map(list5, ~ str_extract_all(.x, c))
+
+
+
+```
+
+
+```{r}
+# Make table with snowball and "en" and my own punctuation lists
+  
+stop_words_snowball <- filter(stop_words, lexicon=="snowball") %>% select(word)
+
+stopwords(kind = "en")
+
+my_stopwords <- c("also", "even", "one", "yet")
+
+
+stop_punctuation_sep <- c("<p>",",",".",":",";","*","@","'","\"","-","$","--",
+"(",")","'s","'d","'t","n't","'ve","'re","'ll")
+
+# stopword_list <- tibble(filter(stop_words, lexicon=="snowball")
+stopword_list_pun_sep <- c(stop_words_snowball$word, stopwords(kind="en"), stop_punctuation_sep)
+stopword_list_pun_com <- c(stop_words_snowball$word, stopwords(kind="en"), "[<p>]|[\\,\\.\\:\\;\\*\\@\\'\\\"\\-\\$\\(\\)]|(\\-\\-)|('s)|('d)|('t)|(n't)|('ve)|('re)|('ll)")
+
+stop_word_list <- c(stopwords(kind="en"), stop_words_snowball$word)
+
+# Is BE in the stopword lists? Check lemmas.
+
+```
+
+For WLP
+
+```{r tcm for WLP}
+
+# Create iterator over tokens
+# tokens <- space_tokenizer(news_wlp8mil$lemma)
+
+tokens_wlp <- news_wlp8mil %>% select(document_id, lemma) %>% chop(lemma) %>% pull(lemma, document_id) #%>% 
+  #as.list()
+
+tokens_wlp <- map(tokens_wlp, ~ str_to_lower(str_subset(.x, stop_punctuation_regex, negate=T)))
+
+names(tokens)
+
+# Create vocabulary. Terms will be unigrams (simple words).
+it <- itoken(tokens_wlp, progressbar = FALSE)
+vocab <- create_vocabulary(it)
+# Remove very frequent and very infrequent terms using min term count
+vocab <- vocab %>% filter(!term %in% stop_word_list)
+vocab <- prune_vocabulary(vocab, term_count_min = 2L)
+# Use our filtered vocabulary, create a vectorizer
+vectorizer <- vocab_vectorizer(vocab)
+tcm <- create_tcm(it, vectorizer, skip_grams_window = 5L)
+glove <-  GlobalVectors$new(rank = 50, x_max = 10)
+wv_main <-  glove$fit_transform(tcm, n_iter = 10, convergence_tol = 0.01, n_threads = 8)
+wv_context = glove$components
+word_vectors = wv_main + t(wv_context)
+
+
+
+```
+
+Try DTM... (from pipeline code)
+
+```{r}
+dgcm <- create_dtm(it, vectorizer, type = "dgCMatrix")
+dgtm <- create_dtm(it, vectorizer, type = "dgTMatrix")
+dgrm <- create_dtm(it, vectorizer, type = "dgRMatrix")
+csm <- create_dtm(it, vectorizer, type = "CsparseMatrix")
+tsm <- create_dtm(it, vectorizer, type = "TsparseMatrix")
+rsm <- create_dtm(it, vectorizer, type = "RsparseMatrix")
+```
+
+DTM glove vectors
+
+```{r}
+glove <-  GlobalVectors$new(rank = 50, x_max = 10)
+wv_main <-  glove$fit_transform(rsm, n_iter = 10, convergence_tol = 0.01, n_threads = 8)
+wv_context = glove$components
+word_vectors = wv_main + t(wv_context)
+
+```
+
+
+
+```{r}
+# Create vocabulary. Terms will be unigrams (simple words).
+it <- itoken(tokens, progressbar = FALSE)
+vocab <- create_vocabulary(it)
+
+# it <- itoken(list(news_wlp80000$lemma), progressbar = FALSE)
+# vocab <- create_vocabulary(it)
+```
+
+Use source's vocab list first, change later to mine.
+
+Term count min: Minimum number of token counts for a term to be included in the corpus. DONT FORGET TO SPECIFY TERM COUNT MAX (or use stop word list)
+
+Use "snowball" lexicon for stop-words, then remove extra words that might be unnecessary
+
+Was set at 5. **Set at 2**
+
+```{r}
+
+# system.time(prune_vocabulary(vocab, term_count_min = 2L)) 
+# system.time(prune_vocabulary(vocab, term_count_min = 5L))
+
+## Determine which max count you want to remove
+# vocab %>% arrange(desc(term_count)) %>% head(100)
+
+vocab <- prune_vocabulary(vocab, term_count_min = 2L, term_count_max = 170000L)
+
+# vocab_filtered <- prune_vocabulary(vocab, term_count_min = 2L) %>% 
+#   tibble() %>% 
+#   filter(!term %in% stopwords(kind = "en"))
+
+# vocab$term %>% str_subset("^the$")
+# vocab_filtered$term %>% str_subset("^the$")
+
+vocab %>% nrow()
+# vocab_filtered %>% nrow()
+
+```
+
+# Feedback 12/10
+
+Run the WLP data to here and compare to the other pipeline
+
+
+
+Skip Gram Window: Size of context window around the target word
+
+**Set at 5**
+
+
+```{r}
+
+# Use our filtered vocabulary
+
+vectorizer <- vocab_vectorizer(vocab)
+
+# use window of 5 for context words
+
+# # 8000: 50.04
+# system.time(tcm <- create_tcm(it, vectorizer, skip_grams_window = 5L))
+# # 25k: 323.01
+# system.time(tcm <- create_tcm(it, vectorizer, skip_grams_window = 5L))
+
+tcm <- create_tcm(it, vectorizer, skip_grams_window = 5L)
+
+```
+
+May need to specify the number of cores, according to author.
+
+```{r}
+
+
+# 8000
+
+glove <-  GlobalVectors$new(rank = 50, x_max = 10)
+
+wv_main <-  glove$fit_transform(tcm, n_iter = 10, convergence_tol = 0.01, n_threads = 8)
+
+# 67.92
+# system.time(wv_main <-  glove$fit_transform(tcm, n_iter = 10, convergence_tol = 0.01, n_threads = 8))
+
+
+```
+
+
+
+```{r}
+
+glove <-  GlobalVectors$new(rank = 50, x_max = 10)
+
+wv_main <-  glove$fit_transform(tcm, n_iter = 10, convergence_tol = 0.01, n_threads = 8)
+
+wv_context = glove$components
+
+word_vectors = wv_main + t(wv_context)
+
+```
+
+
+Predicting a word based on the comparison with other vectors:
+
+```{r}
+# confer <- word_vectors["meeting", , drop = FALSE] -
+#   word_vectors["meet", , drop = FALSE] +
+#   word_vectors["conference", , drop = FALSE]
+# cos_sim = sim2(x = word_vectors, y = confer, method = "cosine", norm = "l2")
+# head(sort(cos_sim[,1], decreasing = TRUE), 5)
+
+# by <- word_vectors["and", , drop = FALSE] -
+#   word_vectors["to", , drop = FALSE] +
+#   word_vectors["with", , drop = FALSE]
+# cos_sim = sim2(x = word_vectors, y = by, method = "cosine", norm = "l2")
+# head(sort(cos_sim[,1], decreasing = TRUE), 5)
+```
+
+Cosine similarities per target word: 
+
+NOTE: Find a way to change "work" to just NOUN instances.
+
+```{r}
+## Get full list of cosine similarities in order, according to target word
+# sim2(x = word_vectors, y = word_vectors["cheese", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T) 
+
+# cos_list <- sim2(x = word_vectors, y = word_vectors["cheese", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
+
+cos_work <- sim2(x = word_vectors, y = word_vectors["work", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
+
+cos_meeting <- sim2(x = word_vectors, y = word_vectors["meeting", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
+
+cos_job <- sim2(x = word_vectors, y = word_vectors["job", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
+```
+
+Was struggling to extract the words out of the atomic vector or matrix. The code below solved it, though it has deprecated functions. [Here is the source](https://stackoverflow.com/questions/69944333/converting-a-matrix-into-a-tibble-in-r).
+
+```{r}
+
+cos_tbl_work <- as_tibble(cos_work, rownames="words") %>% rename(cos_sim = value)
+
+# cos_tbl_work <- cos_work %>% 
+#   as.tibble(rownames = "words") %>% 
+#   gather("value", key = "value2", value = value) %>% 
+#   select(words = words, cos_sim = value) %>% 
+#   filter(cos_sim >= 0.5)
+
+# cos_tbl_work <- cos_tbl_work %>% 
+#   mutate(target = "work")
+
+cos_tbl_meeting <- cos_meeting %>% 
+  as.tibble(rownames = "words") %>% 
+  gather("value", key = "value2", value = value) %>% 
+  select(words = words, cos_sim = value) %>% 
+  filter(cos_sim >= 0.3)
+
+cos_tbl_meeting <- cos_tbl_meeting %>% 
+  mutate(target = "meeting")
+
+cos_tbl <- full_join(cos_tbl_work, cos_tbl_meeting)
+
+# cos_tbl %>% ifelse(duplicated(cos_tbl$words)==TRUE, print, )
+
+
+
+cos_tbl_work %>% summary()
+
+
+%>% 
+  slice(2:6)
+
+# cos_tbl <- cos_list %>% 
+#   as.tibble(rownames = "words") %>% 
+#   gather("value", key = "value2", value = value) %>% 
+#   select(words = words, cos_sim = value) %>% 
+#   slice(2:6)
+```
+
+
+```{r}
+write_csv(cos_tbl, "data_private/test_cos_25k.csv")
+
+# as.tibble(rownames = "words", ~ c(cos_list,
+#               cos_list2,
+#               cos_list3)) %>% gather("value", key = "value2", value = value) %>% 
+#   select(words = words, cos_sim = value) %>% 
+#   slice(2:6)
+
+```
+
+
+Read in 25k data again and compare words in "work" and "meeting"
+
+```{r}
+
+cos_tbl_25k <- read_csv("data_private/test_cos_25k.csv")
+
+cos_tbl_25k %>% 
+  unique(words, incomparables = F)
+
+```
+
+
+Trying to use correct functions `pivot_longer` and `tibble` but struggling to get the same results. 
+
+```{r}
+cos_list %>% 
+  pivot_longer(rownames = "words", value = "value")
+  tibble(rownames, value)
+
+cos_tbl <- cos_list %>% 
+  tibble(rownames = "words", value = "value")
+
+```
+
+Cosine similarities mapped onto multiple target words?
+
+```{r}
+sim2(x = word_vectors, y = word_vectors["cheese", , drop=FALSE], method = "cosine", norm = "l2")[,1] %>% sort(decreasing = T) %>% head(5)
+
+```
+
+Analyze the results
+
+- 393,667 words (remember the `prune_vocab()` function removed words)  
+- top words "instead" (0.8731426), "doing" (0.8704069), "time" (0.8649227), "way" (0.8642288), "job" (0.8560277), "same" (0.8524236), "done" (0.8522326), "now" (0.8521537), "rather" (0.8518153), "own" (0.8360136), "well" (0.8346018).
+
+```{r}
+
+cos_tbl %>% summary() ## 393,667 words
+
+cos_tbl %>% slice(2:21)
+
+```
+
+Visualize?
+
+```{r}
+
+mutate(proportion = n / sum(n)) %>% 
+  select(-n) %>% 
+  pivot_wider(names_from = author, values_from = proportion) %>%
+  pivot_longer(`Brontë Sisters`:`H.G. Wells`,
+               names_to = "author", values_to = "proportion")
+
+arrange(proportion)
+
+ggplot(slice(cos_tbl, 1:50), aes(x = words, y = cos_sim)) + geom_col()
+
+```
+
+
+
+Add K-Bands
+
+```{r}
+
+output_words <- 
+  cos_tbl$words
+
+output_words %>% 
+  summary()
+
+output_words_sample <- 
+  output_words[1:200] %>% writeLines()
+
+k_bands_1 <- c("about_[1] actually_[1] addition_[1] all_[1] alone_[1] already_[1] also_[1] always_[1] and_[2] as_[2] be_[1] because_[2] better_[1] both_[1] bring_[1] bringing_[1] brought_[1] business_[1] but_[2] can_[1] come_[1] comes_[1] coming_[1] could_[1] course_[1] did_[1] different_[1] do_[1] does_[1] doing_[1] done_[1] either_[1] even_[2] every_[1] everyone_[1] everything_[1] experience_[1] find_[1] finding_[1] for_[2] get_[1] giving_[1] go_[1] going_[1] good_[1] hard_[1] have_[1] having_[1] he_[2] help_[1] helping_[1] here_[1] how_[1] i_[1] idea_[1] if_[2] instead_[2] is_[1] it_[2] job_[1] just_[1] keep_[1] kids_[1] kind_[1] learn_[1] learned_[1] learning_[1] life_[1] like_[1] long_[1] look_[1] looking_[1] lot_[1] made_[1] make_[1] makes_[1] making_[1] may_[1] means_[1] meant_[1] might_[1] more_[1] move_[1] much_[1] must_[1] need_[1] needed_[1] needs_[1] new_[1] not_[2] now_[2] often_[1] once_[2] one_[1] only_[1] or_[1] other_[1] others_[1] our_[1] own_[1] part_[1] people_[1] place_[1] planning_[1] program_[1] put_[1] putting_[1] rather_[1] re_[1] really_[1] rest_[1] same_[1] see_[1] set_[1] she_[2] should_[1] show_[1] simply_[1] so_[2] some_[1] something_[1] sometimes_[1] sort_[1] special_[1] start_[1] still_[1] such_[1] supposed_[1] take_[1] taken_[1] takes_[1] taking_[1] that_[2] their_[1] them_[1] there_[2] these_[1] they_[2] things_[1] think_[1] this_[1] those_[1] though_[1] thought_[1] time_[1] to_[1] took_[1] trying_[1] us_[1] used_[1] usually_[1] ve_[1] wanted_[1] way_[1] ways_[1] we_[2] well_[1] what_[1] when_[2] which_[1] while_[2] will_[1] without_[1] work_[1] worked_[1] working_[1] works_[1] would_[1] years_[1] yet_[1] you_[1]")
+
+k_bands_1 <- k_bands_1 %>% 
+  tibble(word = `.`, k_band = k_bands_1, number = k_bands_1) 
+
+k_bands_1$word <- k_bands_1$word %>% 
+  # unnest_tokens(word, word, token = "", format = "text", drop = TRUE)
+  str_split("\\s+")
+
+k_bands_1
+```
+
+Need to remove stop words and lemmatize.
+
+Stop words:
+
+```{r}
+
+cos_tbl %>% 
+  filter(!words %in% stopwords(kind = "en")) %>% 
+  slice(2:21)
+
+cos_tbl_filtered <- cos_tbl %>% 
+  filter(!words %in% stopwords(kind = "en"))
+
+```
+
+Lemmatize: 
+
+
+
+
+## Test a DTM matrix with the rest the same.
+
+See previous commits.
+
+Try TfIdf (p. 32)[CRAN](https://cran.r-project.org/web/packages/text2vec/text2vec.pdf)
+
+
+# Run the full data I created.
+
+```{r}
+
+# read_csv("data_private/test_cos_25k.csv")
+
+data_work <- read_csv("data_private/cosine_work.csv")
+
+data_work %>% head(20)
+
+data_work %>% summary()
+
+data_work %>% 
+  head(21) %>% 
+  ggplot(aes(words, cos_sim))+
+  geom_point(alpha = 0)+
+  geom_text(aes(label = words))
+
+
+cos_tbl_25k %>% 
+  group_by(target) %>% 
+  slice(1:21) %>% 
+  ggplot(aes(words, cos_sim))+
+  geom_point(alpha = 0)+
+  geom_text(aes(label = words, colour = target))
+  
+
+su
+
+```
+
+```{r fig.align="center", echo = FALSE,fig.width = 14}
+cos_tbl_25k %>% 
+  group_by(target) %>% 
+  slice(1:21) %>% 
+  ggplot(aes(words, cos_sim))+
+  geom_point(alpha = 0)+
+  geom_text(aes(label = words, colour = target))
+
+data_work %>% 
+  head(50) %>% 
+  ggplot(aes(words, cos_sim))+
+  geom_point(alpha = 0)+
+  geom_text(aes(label = words))
+```
+
+
+
+# Session info
+
+```{r}
+sessionInfo()
+```

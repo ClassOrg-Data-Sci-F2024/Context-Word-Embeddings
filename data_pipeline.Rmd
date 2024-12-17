@@ -34,10 +34,7 @@ library(tm)
 
 ```{r}
 
-# c("data_private/wlp_newspaper_lsp/wlp_news_2012.txt") %>% 
-#   read_tsv(col_names = F)
-  
-  news_wlp <- c("data_private/wlp_newspaper_lsp/wlp_news_1990.txt",
+news_wlp <- c("data_private/wlp_newspaper_lsp/wlp_news_1990.txt",
            "data_private/wlp_newspaper_lsp/wlp_news_1991.txt",
            "data_private/wlp_newspaper_lsp/wlp_news_1992.txt",
            "data_private/wlp_newspaper_lsp/wlp_news_1993.txt",
@@ -60,8 +57,40 @@ library(tm)
            "data_private/wlp_newspaper_lsp/wlp_news_2010.txt",
            "data_private/wlp_newspaper_lsp/wlp_news_2011.txt",
            "data_private/wlp_newspaper_lsp/wlp_news_2012.txt") %>% 
+  map_dfr(~read.delim(.x, header = FALSE, col.names = c("word", "lemma", "pos"), skipNul = TRUE, quote = ""))
+  
+nrow(news_wlp)
+  
+c("data_private/wlp_newspaper_lsp/wlp_news_1990.txt",
+  "data_private/wlp_newspaper_lsp/wlp_news_1991.txt") %>%
+  map(read_tsv, col_names = F))
+
+test9091 <- c("data_private/wlp_newspaper_lsp/wlp_news_1990.txt",
+  "data_private/wlp_newspaper_lsp/wlp_news_1991.txt") %>%
   read_tsv(col_names = F)
 
+test90_12 <- c("data_private/wlp_newspaper_lsp/wlp_news_1990.txt",
+  "data_private/wlp_newspaper_lsp/wlp_news_2012.txt") %>%
+  read_tsv(col_names = F)
+
+# test for the presence of each dataset in the read object
+
+start_docs <- c("##3000001", "##3000010", "##3000061", "##3000125", "##4113706")
+
+news_wlp$X1[news_wlp$X1 %in% start_docs]
+
+news_wlp %>% 
+  filter(X1 %in% start_docs)
+
+news_wlp %>% 
+  filter(str_detect(X1, c("3000001", "3000061")))
+
+test91 <- c("data_private/wlp_newspaper_lsp/wlp_news_1990.txt") %>% read_tsv(col_names=F)
+test91 <- c("data_private/wlp_newspaper_lsp/wlp_news_1990.txt") %>% read_tsv()
+
+test91 %>% 
+  filter(`##3000001` %in% start_docs)
+  
 ```
 # Clean the data
 
@@ -96,7 +125,8 @@ news_wlp %>% head()
 POS Tags [reference list](https://ucrel.lancs.ac.uk/claws7tags.html)
 
 - Some data is marked with multiple POS (i.e., jj_nn)  
-- Create regex separated by `|` to filter for all cases, including multiples
+- Create regex separated by `|` to filter for all cases, including multiples  
+- Punctuation is marked as "y" in COCA tags, so this step (not including "y") should be sufficient to remove most punctuation, though not contractions
 
 ```{r}
 
@@ -129,7 +159,7 @@ In this step:
 tokens <- news_wlp %>% select(document_id, lemma) %>% chop(lemma) %>% pull(lemma, document_id) #%>% 
   #as.list()
 
-stop_punctuation_regex <- "[<p>]|[\\,\\.\\:\\;\\*\\@\\'\\\"\\-\\$\\(\\)\\?]|(\\-\\-)|('s)|('d)|('t)|(n't)|('ve)|('re)|('ll)"
+stop_punctuation_regex <- "[\\,\\.\\:\\;\\*\\@\\'\\\"\\-\\$\\(\\)\\?]|(\\-\\-)|('s)|('d)|('t)|(n't)|('ve)|('re)|('ll)"
 
 tokens <- map(tokens, ~ str_to_lower(str_subset(.x, stop_punctuation_regex, negate=T)))
 
@@ -165,7 +195,7 @@ stop_words_snowball <- filter(stop_words, lexicon=="snowball") %>% select(word)
 # tm::stopwords(kind = "en")
 
 # My additions
-my_stopwords <- c("also", "even", "one", "yet", "y", "mr", "ms")
+my_stopwords <- c("also", "even", "one", "yet", "mr", "ms")
 
 # Aggregated
 stop_word_list <- c(stopwords(kind="en"), stop_words_snowball$word, my_stopwords)
@@ -183,7 +213,6 @@ stop_word_list
 ```{r}
 vocab <- create_vocabulary(it, stopwords = stop_word_list)
 
-# Remove very infrequent terms using min term count =2
 ```
 
 
@@ -198,6 +227,7 @@ vocab <- create_vocabulary(it, stopwords = stop_word_list)
 ## Determine which max count you want to remove if any
 # vocab %>% arrange(desc(term_count)) %>% head(100)
 
+# Remove very infrequent terms using min term count =2
 # add argument term_count_max = 170000L)
 vocab <- prune_vocabulary(vocab, term_count_min = 2L)
 
@@ -228,9 +258,9 @@ word_vectors = wv_main + t(wv_context)
 ```
 
 
-# Create Target Word List
+# Seed List of Target Words
 
-## Web-scraped
+1. Web-scraped lists
 
 **Promova**
 
@@ -288,12 +318,24 @@ gorick_list
 ```
 
 
+### My own curated list 
+
+
 **My own ideas with insight from gorick list**
 
-c("work", "meeting", "job", "interview", "evaluate", "orientation", "communicate", "career", "task", "action", "value", "benchmark", "practice", "business", "consult", "context", "deliver") 
+```{r}
+
+seed_list <- c("meeting", "job", "interview", "apply", "communicate", "career", "task", "action", "value", "benchmark", "practice", "business", "consult") 
+
+seed_list1 <- paste0(seed_list, "1")
+
+seed_list2 <- paste0(seed_list, "2")
+
+seed_list_asc <- sort(c("meeting", "job", "interview", "apply", "communicate", "career", "task", "action", "value", "benchmark", "practice", "business", "consult"), decreasing=F) 
+```
 
 
-## Cosine similarities for Term Co-Occurrence Matrix
+# Cosine similarities for Term Co-Occurrence Matrix
 
 Cosine similarities per target word: 
 
@@ -303,93 +345,140 @@ Cosine similarities per target word:
 
 # tokens <- map(tokens, ~ str_to_lower(str_subset(.x, stop_punctuation_regex, negate=T)))
 
-map(~ sim2(x=word_vectors, y = word_vectors[.x, , drop = FALSE], method = "cosine", norm = "l2") .x )
+# cos_seed_list <- map(seed_list, ~ sort(sim2(x=word_vectors, y = word_vectors[.x, , drop = FALSE], method = "cosine", norm = "l2"), decreasing=T))
+
+str(cos_seed_list)
+
+# cos_seed <- as_tibble(cos_seed_list, .name_repair = "unique", rownames="words") %>% 
+#   rename(colnames(seed_list))
+
+# cos_seed_list <- cos_seed_list[[1]] %>% as_tibble(rownames="words") %>% 
+#   rename(cos_sim = value) %>% 
+#   mutate(target = "work") %>% 
+#   filter(cos_sim < 1, cos_sim >= 0.5)
+# 
+# as_tibble(sort(sim2(x = word_vectors, y = word_vectors["work", , drop=FALSE], method = "cosine", norm = "l2")[,0:1], decreasing = T),rownames="words")
 
 ```
 
+Target word cosine similarities: target1
 
+```{r target1 sim2 objects}
 
-```{r}
+# map(seed_list, ~ sort(sim2(x = word_vectors, y = word_vectors[.x, , drop = FALSE], method = "cosine", norm = "l2"), decreasing = T)) %>% 
+#   map(cos_seed_list, ~ as_tibble(.x, rownames="words")) %>% 
+#   unlist()
 
-## Target word "work"
-cos_work <- sim2(x = word_vectors, y = word_vectors["work", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
+meeting1 <- sim2(x = word_vectors, y = word_vectors["meeting", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
 
-## Target word "meeting"
-cos_meeting <- sim2(x = word_vectors, y = word_vectors["meeting", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
+job1 <- sim2(x = word_vectors, y = word_vectors["job", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
 
-## Target word "job"
-cos_job <- sim2(x = word_vectors, y = word_vectors["job", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
+interview1 <- sim2(x = word_vectors, y = word_vectors["interview", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
 
-## Target word "interview"
-cos_interview <- sim2(x = word_vectors, y = word_vectors["interview", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
+apply1 <- sim2(x = word_vectors, y = word_vectors["apply", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
 
-## Target word "review"
-cos_evaluate <- sim2(x = word_vectors, y = word_vectors["evaluate", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
+communicate1 <- sim2(x = word_vectors, y = word_vectors["communicate", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
 
-## Target word "orientation"
-cos_orientation <- sim2(x = word_vectors, y = word_vectors["orientation", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
+career1 <- sim2(x = word_vectors, y = word_vectors["career", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
 
-## Target word "onboard"
-cos_onboard <- sim2(x = word_vectors, y = word_vectors["onboard", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
+task1 <- sim2(x = word_vectors, y = word_vectors["task", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
 
+action1 <- sim2(x = word_vectors, y = word_vectors["action", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
+
+value1 <- sim2(x = word_vectors, y = word_vectors["value", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
+
+benchmark1 <- sim2(x = word_vectors, y = word_vectors["benchmark", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
+
+practice1 <- sim2(x = word_vectors, y = word_vectors["practice", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
+
+business1 <- sim2(x = word_vectors, y = word_vectors["business", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
+
+consult1 <- sim2(x = word_vectors, y = word_vectors["consult", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
 
 ```
 
+Target word tables: target2
 
+```{r target2 table objects}
 
-```{r}
-cos_tbl_work <- as_tibble(cos_work, rownames="words") %>% 
-  rename(cos_sim = value) %>% 
-  mutate(target = "work") %>% 
-  filter(cos_sim < 1, cos_sim >= 0.5)
-
-cos_tbl_meeting <- as_tibble(cos_meeting, rownames="words") %>% 
-  rename(cos_sim = value) %>% 
+meeting2 <- as_tibble(meeting1, rownames="words") %>% 
+  rename(cos_sim = value) %>%
   mutate(target = "meeting") %>% 
-  filter(cos_sim < 1, cos_sim >= 0.5)
+  filter(cos_sim < 1, cos_sim >= 0.5) %>% 
+  filter(!str_detect(words, "meeting"))
 
-cos_tbl_job <- as_tibble(cos_job, rownames="words") %>% 
+job2 <- as_tibble(job1, rownames="words") %>% 
   rename(cos_sim = value) %>%
   mutate(target = "job") %>% 
-  filter(cos_sim < 1, cos_sim >= 0.5)
+  filter(cos_sim < 1, cos_sim >= 0.5) %>% 
+  filter(!str_detect(words, "job"))
 
-cos_tbl_interview <- as_tibble(cos_interview, rownames="words") %>% 
+interview2 <- as_tibble(interview1, rownames="words") %>% 
   rename(cos_sim = value) %>%
   mutate(target = "interview") %>% 
-  filter(cos_sim < 1, cos_sim >= 0.5)
-
-cos_tbl_evaluate <- as_tibble(cos_evaluate, rownames="words") %>% 
-  rename(cos_sim = value) %>%
-  mutate(target = "evaluate") %>% 
   filter(cos_sim < 1, cos_sim >= 0.5) %>% 
-  filter(!str_detect(words, "evaluate"))
+  filter(!str_detect(words, "interview"))
 
-cos_tbl_orientation <- as_tibble(cos_orientation, rownames="words") %>% 
+apply2 <- as_tibble(apply1, rownames="words") %>% 
   rename(cos_sim = value) %>%
-  mutate(target = "orientation") %>% 
+  mutate(target = "apply") %>% 
   filter(cos_sim < 1, cos_sim >= 0.5) %>% 
-  filter(!str_detect(words, "orientation"))
+  filter(!str_detect(words, "apply"))
 
-cos_tbl_onboard <- as_tibble(cos_onboard, rownames="words") %>% 
+communicate2 <- as_tibble(communicate1, rownames="words") %>% 
   rename(cos_sim = value) %>%
-  mutate(target = "onboard") %>% 
+  mutate(target = "communicate") %>% 
   filter(cos_sim < 1, cos_sim >= 0.5) %>% 
-  filter(!str_detect(words, "onboard"))
+  filter(!str_detect(words, "communicate"))
 
-## Add target word to facilitate join
+career2 <- as_tibble(career1, rownames="words") %>% 
+  rename(cos_sim = value) %>%
+  mutate(target = "career") %>% 
+  filter(cos_sim < 1, cos_sim >= 0.5) %>% 
+  filter(!str_detect(words, "career"))
 
+task2 <- as_tibble(task1, rownames="words") %>% 
+  rename(cos_sim = value) %>%
+  mutate(target = "task") %>% 
+  filter(cos_sim < 1, cos_sim >= 0.5) %>% 
+  filter(!str_detect(words, "task"))
 
-```
+action2 <- as_tibble(action1, rownames="words") %>% 
+  rename(cos_sim = value) %>%
+  mutate(target = "action") %>% 
+  filter(cos_sim < 1, cos_sim >= 0.5) %>% 
+  filter(!str_detect(words, "action"))
 
-Combine table names into C()
+value2 <- as_tibble(value1, rownames="words") %>% 
+  rename(cos_sim = value) %>%
+  mutate(target = "value") %>% 
+  filter(cos_sim < 1, cos_sim >= 0.5) %>% 
+  filter(!str_detect(words, "value"))
 
-```{r}
+benchmark2 <- as_tibble(benchmark1, rownames="words") %>% 
+  rename(cos_sim = value) %>%
+  mutate(target = "benchmark") %>% 
+  filter(cos_sim < 1, cos_sim >= 0.5) %>% 
+  filter(!str_detect(words, "benchmark"))
 
-cos_tbl_c <- c("cos_tbl_work", 
-               "cos_tbl_meeting",
-               "cos_tbl_job",
-               "cos_tbl_interview",
-               "cos_tbl_evaluate") %>% writeLines()
+practice2 <- as_tibble(practice1, rownames="words") %>% 
+  rename(cos_sim = value) %>%
+  mutate(target = "practice") %>% 
+  filter(cos_sim < 1, cos_sim >= 0.5) %>% 
+  filter(!str_detect(words, "practice"))
+
+business2 <- as_tibble(business1, rownames="words") %>% 
+  rename(cos_sim = value) %>%
+  mutate(target = "business") %>% 
+  filter(cos_sim < 1, cos_sim >= 0.5) %>% 
+  filter(!str_detect(words, "business"))
+
+consult2 <- as_tibble(consult1, rownames="words") %>% 
+  rename(cos_sim = value) %>%
+  mutate(target = "consult") %>% 
+  filter(cos_sim < 1, cos_sim >= 0.5) %>% 
+  filter(!str_detect(words, "consult"))
+
 
 ```
 
@@ -408,15 +497,90 @@ cos_tbl <- full_join(cos_tbl3, cos_tbl_evaluate)
 
 cos_tbl %>% arrange(desc(cos_sim))
 
-cos_tbl <- bind_rows(cos_tbl_work,
-                     cos_tbl_meeting,
-                     cos_tbl_job,
-                     cos_tbl_interview,
-                     cos_tbl_evaluate,
-                     cos_tbl_orientation,
-                     cos_tbl_onboard)
+cos_tbl <- bind_rows(meeting2,
+               job2, 
+               interview2, 
+               apply2,
+               communicate2,
+               career2,
+               task2,
+               action2,
+               value2,
+               benchmark2,
+               practice2,
+               business2,
+               consult2)
 
 ```
+
+Analyze top 15 words for each seed word
+
+```{r}
+cos_tbl %>% 
+  group_by(target) %>% 
+  summarize(nrow = nrow(cos_tbl$target))
+
+cos_tbl %>% 
+  group_by(target) %>% 
+  count(sort = T) 
+
+```
+
+**Use this to present the data in the report**
+
+```{r}
+## Benchmark has the lowest number, so we will restrict to 15
+
+cos_tbl_15 <- cos_tbl %>% 
+  group_by(target) %>% 
+  slice(1:15)
+cos_tbl_15 %>% 
+  group_by(target) %>% 
+  arrange(words) %>% 
+  summarize(words = str_flatten(words, ", "))
+```
+
+
+```{r}
+cos_tbl_15 %>% 
+  select(words, target) %>% 
+  pivot_wider(names_from = "target", values_from = "words", values_fn=list) %>%  
+  select(-value) %>% 
+  unchop(action) 
+
+cos_tbl_15 %>% 
+  filter(target == "action") %>% 
+  pull(words) 
+
+tibble(~ seed_list_asc | cos_tbl_15$words)
+
+cos_tbl_15 %>% 
+  unnest_wider(target)
+
+map(cos_tbl_15, ~ filter(cos_tbl_15$target == .x)) %>% pull(words))
+  
+tibble()
+
+cos_tbl_15$target
+
+tibble()
+
+library(data.table)
+
+dcast(as.data.table(cos_tbl_15), words ~ target)
+
+```
+
+
+```{r table1, tidy=FALSE}
+
+table1 <- tribble(
+  ~"Words similar to", ~seed_list)
+)
+knitr::kable((data1), booktabs = TRUE,
+caption = 'A test table.')
+```
+
 
 Write CSV
 
@@ -426,16 +590,7 @@ Write CSV
 
 ```
 
-Visualize
-
-```{r}
-
-cos_tbl %>% 
-  filter(target == "work") %>% 
-  arrange(cos_sim)
-
-```
-
+Visualizations
 
 Plot along line
 

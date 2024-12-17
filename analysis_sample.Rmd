@@ -30,6 +30,10 @@ library(tm)
 
 ```
 
+# Run pipeline with randomly sampled data
+
+# Run analysis on output csv from full data
+
 # Read in data
 
 - Files: 1 of 22 in (analysis.Rmd)[analysis.Rmd] and (analysis.nb.Rmd)[analysis.nd.Rmd]  

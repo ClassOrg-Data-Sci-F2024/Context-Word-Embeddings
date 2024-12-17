@@ -24,6 +24,9 @@ library(text2vec)
 library(Rling)
 library(cluster)
 library(tm)
+
+# visualization
+library(tablesgg)
 ```
 
 
@@ -61,39 +64,11 @@ news_wlp <- c("data_private/wlp_newspaper_lsp/wlp_news_1990.txt",
   
 nrow(news_wlp)
   
-# c("data_private/wlp_newspaper_lsp/wlp_news_1990.txt",
-#   "data_private/wlp_newspaper_lsp/wlp_news_1991.txt") %>%
-#   map(read_tsv, col_names = F))
-# 
-# test9091 <- c("data_private/wlp_newspaper_lsp/wlp_news_1990.txt",
-#   "data_private/wlp_newspaper_lsp/wlp_news_1991.txt") %>%
-#   read_tsv(col_names = F)
-# 
-# test90_12 <- c("data_private/wlp_newspaper_lsp/wlp_news_1990.txt",
-#   "data_private/wlp_newspaper_lsp/wlp_news_2012.txt") %>%
-#   read_tsv(col_names = F)
-# 
-# # test for the presence of each dataset in the read object
-# 
-# start_docs <- c("##3000001", "##3000010", "##3000061", "##3000125", "##4113706")
-# 
-# news_wlp$X1[news_wlp$X1 %in% start_docs]
-# 
-# news_wlp %>% 
-#   filter(X1 %in% start_docs)
-# 
-# news_wlp %>% 
-#   filter(str_detect(X1, c("3000001", "3000061")))
-# 
-# test91 <- c("data_private/wlp_newspaper_lsp/wlp_news_1990.txt") %>% read_tsv(col_names=F)
-# test91 <- c("data_private/wlp_newspaper_lsp/wlp_news_1990.txt") %>% read_tsv()
-# 
-# test91 %>% 
-#   filter(`##3000001` %in% start_docs)
-  
 news_wlp <- news_wlp %>% as_tibble()
 
 ```
+
+
 # Clean the data
 
 ## Tidy columns
@@ -106,12 +81,13 @@ news_wlp <- news_wlp %>% as_tibble()
 ## Add column marked by document number (when lemma & pos are NA), keep the rest NA
 
 news_wlp <- news_wlp %>%
-  mutate(document_id = ifelse(str_detect(word, "^##\\d{7}")==T, str_sub(word, 3,9), NA)) %>% 
-  fill(document_id)
+  mutate(document_id = ifelse(str_detect(word, "^##\\d{7}")==T, str_sub(word, 3,9), NA)) 
+
+## Note: The following code was not put in the preceding pipe because of knitting issues.
 
 ## Replace NAs with document_id 
-# news_wlp <- news_wlp %>%
-#   fill(document_id)
+news_wlp <- news_wlp %>%
+  fill(document_id)
 
 unique(news_wlp$document_id) %>% length()
 
@@ -139,6 +115,7 @@ news_wlp <- news_wlp %>%
 news_wlp %>% head()
 
 news_wlp %>% nrow()
+
 unique(news_wlp$document_id) %>% length()
 
 ```
@@ -169,8 +146,7 @@ tokens <- news_wlp %>% select(document_id, lemma) %>% chop(lemma) %>% pull(lemma
 tokens <- map(tokens, ~ str_to_lower(str_subset(.x, stop_punctuation_regex, negate=T)))
 
 ## Output summary
-str(tokens)
-summary(tokens)
+summary(tokens) %>% head()
 
 ## Output shows first element of list
 tokens[[1]] %>% head(50)
@@ -181,7 +157,9 @@ tokens[[1]] %>% head(50)
 
 - Iterator  
 - Vocabulary & Remove Stopwords   
-- 
+- Vectorizer  
+- Term co-occurrence matrix  
+- Word vectors
 
 ```{r}
 
@@ -230,6 +208,7 @@ vocab <- create_vocabulary(it, stopwords = stop_word_list)
 
 # Remove very infrequent terms using min term count =2
 # add argument term_count_max = 170000L)
+
 vocab <- prune_vocabulary(vocab, term_count_min = 2L)
 
 vectorizer <- vocab_vectorizer(vocab)
@@ -308,8 +287,6 @@ gorick_list <- gorick_list %>%
 gorick_list <- gorick_list %>%
   tolower()
 
-gorick_list
-
   
 ```
 
@@ -319,6 +296,8 @@ gorick_list
 
 **My own ideas with insight from gorick list**
 
+- Used `writeLines()` in console to paste the seed_list_1 with 1 appended into the next code chunk, and same with seed_list_2
+
 ```{r}
 
 seed_list <- c("meeting", "job", "interview", "apply", "communicate", "career", "task", "action", "value", "benchmark", "practice", "business", "consult") 
@@ -327,35 +306,11 @@ seed_list1 <- paste0(seed_list, "1")
 
 seed_list2 <- paste0(seed_list, "2")
 
-seed_list_asc <- sort(c("meeting", "job", "interview", "apply", "communicate", "career", "task", "action", "value", "benchmark", "practice", "business", "consult"), decreasing=F) 
+seed_list_sorted <- sort(c("meeting", "job", "interview", "apply", "communicate", "career", "task", "action", "value", "benchmark", "practice", "business", "consult"), decreasing=F) 
 ```
 
 
-# Cosine similarities for Term Co-Occurrence Matrix
-
-Cosine similarities per target word: 
-
-"work" should include both nouns and verbs, unfortunately
-
-```{r}
-
-# tokens <- map(tokens, ~ str_to_lower(str_subset(.x, stop_punctuation_regex, negate=T)))
-
-# cos_seed_list <- map(seed_list, ~ sort(sim2(x=word_vectors, y = word_vectors[.x, , drop = FALSE], method = "cosine", norm = "l2"), decreasing=T))
-
-str(cos_seed_list)
-
-# cos_seed <- as_tibble(cos_seed_list, .name_repair = "unique", rownames="words") %>% 
-#   rename(colnames(seed_list))
-
-# cos_seed_list <- cos_seed_list[[1]] %>% as_tibble(rownames="words") %>% 
-#   rename(cos_sim = value) %>% 
-#   mutate(target = "work") %>% 
-#   filter(cos_sim < 1, cos_sim >= 0.5)
-# 
-# as_tibble(sort(sim2(x = word_vectors, y = word_vectors["work", , drop=FALSE], method = "cosine", norm = "l2")[,0:1], decreasing = T),rownames="words")
-
-```
+# Cosine similarities based on Term Co-Occurrence Matrix
 
 Target word cosine similarities: target1
 
@@ -392,6 +347,7 @@ business1 <- sim2(x = word_vectors, y = word_vectors["business", , drop=FALSE], 
 consult1 <- sim2(x = word_vectors, y = word_vectors["consult", , drop=FALSE], method = "cosine", norm = "l2")[,0:1] %>% sort(decreasing = T)
 
 ```
+
 
 Target word tables: target2
 
@@ -478,20 +434,11 @@ consult2 <- as_tibble(consult1, rownames="words") %>%
 
 ```
 
+Join the target word tibbles
 
 ```{r}
 
-
 ## Join the target word tibbles
-# cos_tbl1 <- full_join(cos_tbl_work, cos_tbl_meeting)
-# 
-# cos_tbl2 <- full_join(cos_tbl_job, cos_tbl_interview)
-# 
-# cos_tbl3 <- full_join(cos_tbl1, cos_tbl2)
-# 
-# cos_tbl <- full_join(cos_tbl3, cos_tbl_evaluate)
-# 
-# cos_tbl %>% arrange(desc(cos_sim))
 
 cos_tbl <- bind_rows(meeting2,
                job2, 
@@ -511,163 +458,141 @@ cos_tbl <- bind_rows(meeting2,
 
 Analyze top 15 words for each seed word
 
-```{r}
-cos_tbl %>% 
-  group_by(target) %>% 
-  summarize(nrow = nrow(cos_tbl$target))
-
-cos_tbl %>% 
-  group_by(target) %>% 
-  count(sort = T) 
-
-```
-
 **Use this to present the data in the report**
 
-```{r plotcompare, dependson = "cos_tbl_15", fig.width=10, fig.height=5, fig.cap="Output Words with Highest Cosine by Target Word"}
-## Benchmark has the lowest number, so we will restrict to 32
+Create top 15 output words per target word, longform
+
+```{r create top 15 output words per target word}
 
 cos_tbl_15 <- cos_tbl %>% 
   group_by(target) %>% 
   slice(1:15)
+```
 
-cos_tbl_15 %>% 
+
+```{r plotcompare, dependson = "cos_tbl_15", fig.width=10, fig.height=5, fig.show = "hold", fig.cap="15 Most Similar Words by Target Word", dev = "png"}
+
+
+cos_tbl_15_words <- cos_tbl_15 %>% 
   group_by(target) %>% 
   arrange(words) %>% 
   summarize(words = str_flatten(words, ", "))
-```
 
+cos_df_15_words <- as.data.frame(cos_tbl_15_words)
 
-```{r}
-# cos_tbl_15 %>% 
-#   select(words, target) %>% 
-#   pivot_wider(names_from = "target", values_from = "words", values_fn=list) %>%  
-#   select(-value) %>% 
-#   unchop(action) 
-# 
-# cos_tbl_15 %>% 
-#   filter(target == "action") %>% 
-#   pull(words) 
-
-
+plot.textTable(textTable(cos_df_15_words, title = "Top 15 Output Words", subtitle = "Cosine Similarities in Descending Order by Target Word", row.names=F))
 
 ```
-
 
 Write CSV
 
 ```{r}
 
-# cos_tbl %>% slice_sample() %>% write_csv()
+cos_tbl %>% 
+  group_by(target) %>% 
+  slice(1:100) %>% 
+  write_csv("data/cosine_similarities.csv")
 
 ```
 
-Visualizations
+# Visualizations
 
-Plot along line
+## Plot by target word pairs
 
 First we need to create a new table with the target word cosine similarities in one column and the other target words in another column with their cosines in another column. 
 
-```{r plotcompare, dependson = "cos_tbl", fig.width=10, fig.height=5, fig.cap="Comparing the Cosine Similarities of Target Words"}
+**Target word Interview**
 
-cos_tbl_work2 <-
+```{r plotcompare2, dependson = "cos_tbl", fig.show = "hold", fig.width=10, fig.height=15, fig.cap="Comparing the Cosine Similarities of Pairs of Target Words"}
+
+cos_tbl_interview <-
   cos_tbl %>% 
-  pivot_wider(names_from = target, values_from = cos_sim) %>%
-  pivot_longer(meeting:evaluate,
-               names_to = "target", values_to = "cos_sim")
+  pivot_wider(names_from = target, values_from = cos_sim) %>% 
+  pivot_longer(cols = c(seed_list, -interview), names_to = "target", values_to = "cos_sim")
 
-ggplot(cos_tbl_work2, aes(x = cos_sim, y = work,
-                          color = abs(work - cos_sim))) +
+ggplot(cos_tbl_interview, aes(x = cos_sim, y = interview,
+                          color = abs(interview - cos_sim))) +
   geom_abline(color = "gray40", lty = 2) +
   geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
   geom_text(aes(label = words), check_overlap = TRUE, vjust = 1.5) +
-  scale_color_gradient(limits = c(0, 0.5), 
-                       low = "darkslategray4", high = "gray75") +
-  facet_wrap(~target, ncol = 3) +
+  scale_color_gradient(low = "darkblue", high = "red") +
+  facet_wrap(~target, ncol = 2) +
   theme(legend.position="none") +
-  labs(y = "work", x = NULL)
+  labs(y = "\"Interview\" Cosine Similarities", x = "Cosine Similarities by Target Word")
 
 
 ```
 
-Plot by target word pairs
+### Check "question" output word against "interview" and "action". Should be around 0.75 for each.
 
-```{r plotcompare, dependson = "cos_tbl", fig.width=10, fig.height=5, fig.cap="Comparing the Cosine Similarities of Pairs of Target Words"}
+```{r}
 
-unique(cos_tbl$target) %>% writeLines()
+cos_tbl %>% 
+  filter(words == "question") %>% 
+  arrange(desc(cos_sim))
 
-cos_tbl_orientation_onboard <-
-  cos_tbl %>% 
-  pivot_wider(names_from = target, values_from = cos_sim) %>%
-  select(words, orientation, onboard) %>% 
-  pivot_longer(onboard, names_to = "target", values_to = "cos_sim")
+```
 
-ggplot(cos_tbl_orientation_onboard, aes(x = cos_sim, y = orientation,
-                          color = abs(orientation - cos_sim))) +
+Indeed, "question" is between 0.77 and 0.78 similar to both "interview" and "action".
+
+
+```{r plotcompare3, dependson = "cos_tbl", fig.show = "hold", fig.width=10, fig.height=5, fig.cap="Comparing Interview & Apply Similar Words"}
+
+ggplot(filter(cos_tbl_interview, target == "apply"), aes(x = cos_sim, y = interview,
+                          color = abs(interview - cos_sim))) +
   geom_abline(color = "gray40", lty = 2) +
   geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
   geom_text(aes(label = words), check_overlap = TRUE, vjust = 1.5) +
-  scale_color_gradient(limits = c(0, 0.5), 
-                       low = "darkslategray4", high = "gray75") +
-  facet_wrap(~target, ncol = 3) +
+  scale_color_gradient(low = "darkblue", high = "red") +
   theme(legend.position="none") +
-  labs(y = "orientation", x = NULL)
+  labs(y = "\"Interview\" Cosine Similarities", x = "\"Apply\" Cosine Similarities")
 
 
 ```
-This didn't work, which might suggest that there is not any overlapping words between these two. 
 
-Examine each individually and see . But they should still show up...
+## Overlap Between Output Words
 
+**Determine if there are output words that overlap between target words when cosine > 0.7. For example, are there words in the range of >0.7 cos_sim that are the same for both "task" and "action"?**
 
-```{r}
-cos_tbl %>% arrange(cos_sim)
-# 
-# ggplot(slice(cos_tbl), aes(x = words, y = cos_sim)) + geom_col()
-
-```
-
+- if we pivot wider, we can inspect the table to find words that have cos_sim values rather than NA  
+- if we first filter out cos_sim < 7, it will show us what we are working with  
+- 
 
 ```{r}
 
-# read_csv("data_private/test_cos_25k.csv")
+cos_wide <- cos_tbl %>% 
+  filter(cos_sim>=.6) %>% 
+  pivot_wider(names_from = target, values_from = cos_sim) 
 
-# data_work <- read_csv("data_private/cosine_work.csv")
-# 
-# data_work %>% head(20)
-# 
-# data_work %>% summary()
-# 
-# data_work %>% 
-#   head(21) %>% 
-#   ggplot(aes(words, cos_sim))+
-#   geom_point(alpha = 0)+
-#   geom_text(aes(label = words))
+cos_wide <- cos_wide %>% 
+  mutate(na_count = rowSums(is.na(.))) %>% 
+  filter(na_count < 12) %>% 
+  arrange(na_count)
+
+cos_wide
 
 
-cos_tbl %>% 
-  group_by(target) %>% 
-  slice(1:21) %>% 
-  ggplot(aes(words, cos_sim))+
-  geom_point(alpha = 0)+
-  geom_text(aes(label = words, colour = target))
-  
 ```
 
+The words that have the most overlap among the target words are (with only five target words not matching): 
 
-```{r fig.align="center", echo = FALSE,fig.width = 14}
+- change  
+- give  
+- reason  
+- important  
+
+
+```{r plotcompare4, fig.align="center", echo = FALSE,fig.width = 14, fig.show = "hold"}
+
 cos_tbl %>% 
   group_by(target) %>% 
-  slice(1:20) %>% 
+  slice(1:10) %>% 
   ggplot(aes(words, cos_sim))+
   geom_point(alpha = 0)+
-  geom_text(aes(label = words, colour = target))
+  geom_text(aes(label = words, colour = target), check_overlap = TRUE)+
+  theme(axis.text.x=element_blank(), axis.ticks.x=element_blank())+
+  labs(y = "Cosine Similarity with Target Word", x = "Output Words")
 
-# data_work %>% 
-#   head(50) %>% 
-#   ggplot(aes(words, cos_sim))+
-#   geom_point(alpha = 0)+
-#   geom_text(aes(label = words))
 ```
 
 # Session info
